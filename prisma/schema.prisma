@@ -5,9 +5,70 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "../src/generated/prisma/client"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  currency  String   @default("NGN")
+  timezone  String   @default("Africa/Lagos")
+  createdAt DateTime @default(now())
+  branches  Branch[]
+  memberships Membership[]
+}
+
+model Branch {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  memberships  Membership[]
+  refreshTokens RefreshToken[]
+}
+
+model Membership {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  roleId         String
+  role           Role     @relation(fields: [roleId], references: [id])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  permissions String[]
+  memberships Membership[]
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  familyId  String
+  tokenHash String    @unique
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  usedAt    DateTime?
+  revokedAt DateTime?
+  replacedBy String?
 }
