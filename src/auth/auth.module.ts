@@ -4,9 +4,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { RefreshTokenService } from "./refresh-token.service";
+import { PassportModule } from "@nestjs/passport";
+import { JwtStrategy } from "./strategies/jwt.strategy";
 
 @Module({
     imports: [
+        PassportModule,
         JwtModule.registerAsync({
             imports: [ConfigModule],
             inject: [ConfigService],
@@ -16,7 +19,7 @@ import { RefreshTokenService } from "./refresh-token.service";
             })
         })
     ],
-    providers: [AuthService, RefreshTokenService],
+    providers: [AuthService, RefreshTokenService, JwtStrategy],
     controllers: [AuthController],
     exports: [AuthService],
 })
