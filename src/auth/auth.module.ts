@@ -15,7 +15,10 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
             inject: [ConfigService],
             useFactory: (config: ConfigService) => ({
                 secret: config.get<string>('JWT_SECRET'),
-                signOptions: { expiresIn: '1d' },
+                // Short-lived: there is no access-token revocation list, so logout
+                // and role changes take effect within this window. Refresh tokens
+                // (rotated, revocable) provide the long-lived session.
+                signOptions: { expiresIn: '15m' },
             })
         })
     ],
