@@ -52,7 +52,7 @@ export class AuthService {
             return { org, branch, user, membership }
         });
 
-        const accessToken = this.signToken(result.user.id);
+        const accessToken = await this.signAccessToken(result.user.id);
         const refreshToken = await this.refreshTokens.issue(result.user.id);
         return { 
             accessToken, 
@@ -68,16 +68,33 @@ export class AuthService {
             throw new UnauthorizedException('Invalid credentials');
         }
 
-        const accessToken = this.signToken(user.id);
+        const passwordValid = await argon2.verify(user.passwordHash, dto.password);
+        if (!passwordValid) {
+            throw new UnauthorizedException('Invalid credentials');
+        }
+
+        const accessToken = await this.signAccessToken(user.id);
         const refreshToken = await this.refreshTokens.issue(user.id);
-        return { 
-            accessToken, 
-            refreshToken, 
-            userId: user.id 
+        return {
+            accessToken,
+            refreshToken,
+            userId: user.id
         };
     }
 
-    signToken(userId: string): string {
-        return this.jwt.sign({ sub: userId })
+    private async resolveActiveOrganizationId(userId: string): Promise<string | null> {
+        // A user may belong to several organizations; pick deterministically
+        // (earliest membership) so tenant scoping is never arbitrary.
+        const membership = await this.prisma.membership.findFirst({
+            where: { userId },
+            orderBy: { id: 'asc' },
+            select: { organizationId: true },
+        });
+        return membership?.organizationId ?? null;
+    }
+
+    async signAccessToken(userId: string): Promise<string> {
+        const organizationId = await this.resolveActiveOrganizationId(userId);
+        return this.jwt.sign({ sub: userId, org: organizationId });
     }
 }

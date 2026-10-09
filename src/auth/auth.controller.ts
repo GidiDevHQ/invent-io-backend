@@ -25,7 +25,7 @@ export  class AuthController {
     @Post('refresh')
     async refresh(@Body() dto: RefreshTokenDto) {
         const { userId, newRawToken } = await this.refreshTokenService.rotate(dto.refreshToken);
-        const accessToken = this.authService.signToken(userId);
+        const accessToken = await this.authService.signAccessToken(userId);
 
         return { accessToken, refreshToken: newRawToken };
     }

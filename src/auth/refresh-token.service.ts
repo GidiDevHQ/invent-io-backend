@@ -37,31 +37,30 @@ export class RefreshTokenService {
             throw new UnauthorizedException('Invalid refresh token');
         }
 
-        if (existing.usedAt) {
-            await this.prisma.refreshToken.updateMany({
-                where: { familyId: existing.familyId, revokedAt: null },
-                data: { revokedAt: new Date() },
-            });
+        // Atomically claim the token: flip usedAt only if it is still null.
+        // If zero rows update, the token was already used (or revoked) by a
+        // concurrent request — treat as reuse and revoke the whole family.
+        const claim = await this.prisma.refreshToken.updateMany({
+            where: { id: existing.id, usedAt: null, revokedAt: null },
+            data: { usedAt: new Date() },
+        });
+
+        if (claim.count === 0) {
+            await this.revokeFamily(existing.familyId);
             throw new UnauthorizedException('Refresh token reuse detected - session revoked');
         }
 
         const newRawToken = randomUUID() + randomUUID();
         const newTokenHash = this.hash(newRawToken);
 
-        await this.prisma.$transaction([
-            this.prisma.refreshToken.update({
-                where: { id: existing.id },
-                data: { usedAt: new Date() },
-            }),
-            this.prisma.refreshToken.create({
-                data: {
-                    userId: existing.userId,
-                    familyId: existing.familyId,
-                    tokenHash: newTokenHash,
-                    expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-                },
-            }),
-        ]);
+        await this.prisma.refreshToken.create({
+            data: {
+                userId: existing.userId,
+                familyId: existing.familyId,
+                tokenHash: newTokenHash,
+                expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+            },
+        });
         return { userId: existing.userId, newRawToken };
     }
 

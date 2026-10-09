@@ -14,13 +14,17 @@ export class TenantContextGuard implements CanActivate {
     async canActivate(ctx: ExecutionContext): Promise<boolean> {
         const req = ctx.switchToHttp().getRequest();
         const userId = req.user?.userId;
+        const organizationId = req.user?.organizationId;
 
         if (!userId) {
             throw new UnauthorizedException('User is not authenticated');
         }
 
+        // Prefer the active organization carried in the token; fall back to the
+        // earliest membership deterministically so scoping is never arbitrary.
         const membership = await this.prisma.membership.findFirst({
-            where: { userId },
+            where: organizationId ? { userId, organizationId } : { userId },
+            orderBy: { id: 'asc' },
             include: { role: true, organization: true },
         });
 
