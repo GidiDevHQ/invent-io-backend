@@ -175,6 +175,33 @@ export class StockService {
         });
     }
 
+    /**
+     * Set the low-stock threshold for a product at a branch. Creates the
+     * branch_stock row (qty 0) if it does not exist yet. Threshold is per-branch
+     * because the same product can have different reorder points per location.
+     */
+    async setThreshold(
+        tenant: TenantContext,
+        branchId: string,
+        productId: string,
+        lowStockThreshold: number,
+    ) {
+        await this.assertBranchInOrg(tenant, branchId);
+        const product = await this.prisma.product.findFirst({
+            where: { id: productId, organizationId: tenant.organizationId },
+            select: { id: true },
+        });
+        if (!product) {
+            throw new NotFoundException('Product not found');
+        }
+
+        return this.prisma.branchStock.upsert({
+            where: { branchId_productId: { branchId, productId } },
+            create: { branchId, productId, qty: 0, lowStockThreshold },
+            update: { lowStockThreshold },
+        });
+    }
+
     /** Stock rows for a branch (scoped to the caller's organization). */
     async getBranchStock(tenant: TenantContext, branchId: string) {
         await this.assertBranchInOrg(tenant, branchId);

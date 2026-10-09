@@ -56,7 +56,9 @@ Stock ledger. Depends on `catalog`, `tenancy`, `audit`.
   `stock.adjust` permission; writes an audit entry. `rebuild(branchId)`
   recomputes cached qty from the ledger and reports drift.
 - Routes: `POST /v1/stock/adjustments`, `GET /v1/branches/:id/stock`,
-  `GET /v1/branches/:id/low-stock` (`stock.adjust` / `stock.read`).
+  `GET /v1/branches/:id/low-stock`,
+  `PATCH /v1/branches/:branchId/stock/:productId` (set low-stock threshold)
+  (`stock.adjust` / `stock.read`).
 
 ## payments ⬜ · sales ⬜ · sync ⬜ · notifications ⬜ · reports ⬜
 Not started. `sales` is next (atomic allocation), depends on `payments`,

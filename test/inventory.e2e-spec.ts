@@ -84,6 +84,36 @@ describe('Inventory stock ledger (e2e)', () => {
         expect(row.flags).toContain('NEGATIVE_STOCK');
     });
 
+    it('sets a low-stock threshold, fires a crossing, and lists the item as low', async () => {
+        // Current qty is -5 from the previous test. Set threshold 3 and restock to 8 (above),
+        // then sell 6 to land at 2 (<= 3) — the crossing should be reported.
+        await request(app.getHttpServer())
+            .patch(`/v1/branches/${branchAId}/stock/${productAId}`)
+            .set('Authorization', `Bearer ${tokenA}`)
+            .send({ lowStockThreshold: 3 })
+            .expect(200);
+
+        await request(app.getHttpServer())
+            .post('/v1/stock/adjustments')
+            .set('Authorization', `Bearer ${tokenA}`)
+            .send({ branchId: branchAId, productId: productAId, type: 'RESTOCK', qtyDelta: 13, reason: 'restock' })
+            .expect(201); // qty: -5 -> 8 (above threshold)
+
+        const crossed = await request(app.getHttpServer())
+            .post('/v1/stock/adjustments')
+            .set('Authorization', `Bearer ${tokenA}`)
+            .send({ branchId: branchAId, productId: productAId, type: 'ADJUSTMENT', qtyDelta: -6, reason: 'sold' })
+            .expect(201); // qty: 8 -> 2 (crosses to <= 3)
+        expect(crossed.body).toHaveLength(1);
+        expect(crossed.body[0]).toMatchObject({ productId: productAId, qty: 2, lowStockThreshold: 3 });
+
+        const low = await request(app.getHttpServer())
+            .get(`/v1/branches/${branchAId}/low-stock`)
+            .set('Authorization', `Bearer ${tokenA}`)
+            .expect(200);
+        expect(low.body.map((r: { productId: string }) => r.productId)).toContain(productAId);
+    });
+
     it('rejects an adjustment with a missing reason', async () => {
         await request(app.getHttpServer())
             .post('/v1/stock/adjustments')
