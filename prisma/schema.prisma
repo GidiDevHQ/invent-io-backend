@@ -156,3 +156,16 @@ model RefreshToken {
   revokedAt DateTime?
   replacedBy String?
 }
+
+// Transactional outbox. A domain event is written here in the SAME transaction
+// as the data change, then a worker publishes it to the queue and marks it
+// processed. Guarantees at-least-once delivery without distributed transactions.
+model OutboxEvent {
+  id          String    @id @default(uuid())
+  type        String    // e.g. "payment.received", "sale.created", "stock.low"
+  payload     Json
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([processedAt, createdAt])
+}
