@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { AuditModule } from './audit/audit.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { OutboxModule } from './outbox/outbox.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { CatalogModule } from './catalog/catalog.module';
     TenancyModule,
     AuditModule,
     CatalogModule,
+    OutboxModule,
   ],
   controllers: [AppController],
   providers: [AppService],

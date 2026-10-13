@@ -20,6 +20,18 @@ Append-only audit trail.
   caller's transaction**, so the audit entry commits atomically with the action.
   If the audit write fails, the action fails.
 
+## outbox ✅
+Transactional outbox for reliable domain events (ADR 003).
+- `OutboxService.enqueue(tx, event)` — writes an `outbox_event` row **inside the
+  caller's transaction**. No Redis; the API process needs no queue connection.
+- Worker (`src/worker.ts`, `npm run start:worker`) runs `OutboxPublisher`, which
+  polls unprocessed rows, publishes each to the BullMQ `domain-events` queue
+  (`jobId = event.id` for idempotency), and marks them processed. Delivery is
+  at-least-once, so consumers must be idempotent.
+- Uses `bullmq` directly (not `@nestjs/bullmq`). Requires `REDIS_URL`.
+- Real consumers (notifications, low-stock, weekly summary) plug into the worker
+  handler as those modules land.
+
 ## catalog ✅
 Products. Depends on `tenancy` (scoping) and `audit`.
 - `CatalogService` — `create`, `list` (cursor-paginated), `get`, `update`,
