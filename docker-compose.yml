@@ -8,7 +8,9 @@ services:
       POSTGRES_PASSWORD: inventio_dev
       POSTGRES_DB: inventio
     ports:
-      - '5432:5432'
+      # Host port defaults to 5432; override with POSTGRES_PORT in .env when 5432
+      # is taken by another project on your machine.
+      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
 

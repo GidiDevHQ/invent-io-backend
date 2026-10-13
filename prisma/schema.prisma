@@ -20,6 +20,7 @@ model Organization {
   createdAt DateTime @default(now())
   branches  Branch[]
   memberships Membership[]
+  products  Product[]
 }
 
 model Branch {
@@ -58,6 +59,42 @@ model Role {
   name        String   @unique
   permissions String[]
   memberships Membership[]
+}
+
+model Product {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  sku            String?
+  barcode        String?
+  unit           String?  // e.g. "piece", "kg", "pack"
+  price          Int      // integer minor units (org currency). Never a float.
+  cost           Int      // integer minor units. Never a float.
+  active         Boolean  @default(true)
+  version        Int      @default(0) // incremented on every edit; used by sync conflict handling
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, sku])
+  @@unique([organizationId, barcode])
+  @@index([organizationId, active])
+}
+
+// Append-only. Written in the same transaction as the action it records.
+// No foreign keys so a retention/rotation policy can prune actors without losing history.
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String
+  actorId        String?
+  action         String   // e.g. "product.price_changed"
+  entity         String   // e.g. "Product"
+  entityId       String
+  before         Json?
+  after          Json?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
 }
 
 model RefreshToken {
