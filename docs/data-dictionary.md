@@ -22,6 +22,36 @@ Catalog item owned by an organization and shared across its branches.
 
 Indexes: `(organizationId, active)`. Currency is the organization's; products are single-currency.
 
+## BranchStock
+Cached per-branch quantity for a product. Updated in the same transaction as the
+ledger; rebuildable from `StockMovement`. Composite PK `(branchId, productId)`.
+
+| Column | Type | Notes |
+|---|---|---|
+| branchId | uuid | FK → Branch. Part of PK. |
+| productId | uuid | FK → Product. Part of PK. |
+| qty | int | Cached quantity. Atomic `qty = qty + delta`. May be negative. |
+| lowStockThreshold | int | Alert fires when qty crosses to ≤ this (and > 0). Default 0. |
+| flags | text[] | e.g. `["NEGATIVE_STOCK"]`. Default `[]`. |
+| updatedAt | timestamp | |
+
+## StockMovement
+Immutable ledger. Current qty is the sum of a product's deltas at a branch.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid (v4) | PK |
+| branchId | uuid | FK → Branch. |
+| productId | uuid | FK → Product. |
+| type | enum | `SALE`, `RESTOCK`, `ADJUSTMENT`, `RETURN`, `TRANSFER_OUT`, `TRANSFER_IN`. |
+| qtyDelta | int | Signed: negative for `SALE`, positive for `RESTOCK`. |
+| refType / refId | text? | Originating entity, e.g. `sale` / sale id. |
+| reason | text? | Required for manual adjustments. |
+| createdBy | uuid? | Actor. |
+| createdAt | timestamp | |
+
+Indexes: `(branchId, productId, createdAt)`.
+
 ## AuditLog
 Append-only record of audited actions. Written in the same transaction as the
 action. No foreign keys, so actor/entity rows can be pruned without losing history.

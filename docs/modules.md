@@ -54,6 +54,24 @@ carries `@ApiOperation`; DTOs carry `@ApiProperty`/`@ApiPropertyOptional`.
 ## auth ✅ · tenancy ✅
 Owned by the other engineer. See source; do not modify their internals here.
 
-## inventory ⬜ · payments ⬜ · sales ⬜ · sync ⬜ · notifications ⬜ · reports ⬜
-Not started. `inventory` is the next module (stock ledger) and depends on
-`catalog`.
+## inventory ✅
+Stock ledger. Depends on `catalog`, `tenancy`, `audit`.
+- Owns `stock_movement` (immutable ledger) and `branch_stock` (cached qty).
+- `StockService.apply(tx, movements)` is the **only** write path for stock
+  tables — other modules (e.g. sales) call it inside their own transaction, so
+  stock changes commit atomically with the action.
+- Quantity uses atomic `qty = qty + delta` (Prisma `increment`). Negative stock
+  is **allowed and flagged** (`NEGATIVE_STOCK` in `branch_stock.flags`), never
+  rejected. Low-stock alerts fire on **threshold crossing**, returned by `apply`
+  for the caller to enqueue after commit.
+- `adjust(tenant, dto)` — manual restock/adjustment, requires a reason and the
+  `stock.adjust` permission; writes an audit entry. `rebuild(branchId)`
+  recomputes cached qty from the ledger and reports drift.
+- Routes: `POST /v1/stock/adjustments`, `GET /v1/branches/:id/stock`,
+  `GET /v1/branches/:id/low-stock`,
+  `PATCH /v1/branches/:branchId/stock/:productId` (set low-stock threshold)
+  (`stock.adjust` / `stock.read`).
+
+## payments ⬜ · sales ⬜ · sync ⬜ · notifications ⬜ · reports ⬜
+Not started. `sales` is next (atomic allocation), depends on `payments`,
+`inventory`, `catalog`.
