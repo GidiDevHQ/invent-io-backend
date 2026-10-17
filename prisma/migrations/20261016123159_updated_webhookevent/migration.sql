@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "WebhookEvent" ADD COLUMN     "availableAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "claimedAt" TIMESTAMP(3);

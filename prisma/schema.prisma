@@ -21,6 +21,8 @@ model Organization {
   branches  Branch[]
   memberships Membership[]
   products  Product[]
+  paymentAccounts PaymentAccount[]
+  payments  Payment[]
 }
 
 model Branch {
@@ -121,4 +123,98 @@ model OutboxEvent {
   processedAt DateTime?
 
   @@index([processedAt, createdAt])
+}
+
+enum PaymentProvider {
+  PAYSTACK
+}
+
+enum PaymentAccountStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  QUARANTINED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  // REFUNDED / CHARGEBACK: add later as separate refund records, not a status flag
+}
+
+model PaymentAccount {
+  id                   String               @id @default(uuid())
+  organizationId       String
+  organization         Organization         @relation(fields: [organizationId], references: [id])
+  branchId             String?
+  provider             PaymentProvider
+  providerAccountId    String?              // optional: may not be known until first real event
+  status               PaymentAccountStatus @default(ACTIVE)
+  integrationTokenHash String               @unique
+  secretCiphertext     String
+  keyVersion           Int                  @default(1)
+
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  webhookEvents        WebhookEvent[]
+  payments             Payment[]
+
+  // One provider account can belong to only one tenant (NULLs are exempt).
+  @@unique([provider, providerAccountId])
+  @@index([organizationId, provider, status])
+}
+
+model WebhookEvent {
+  id               String             @id @default(uuid())
+  paymentAccountId String?
+  paymentAccount   PaymentAccount?    @relation(fields: [paymentAccountId], references: [id])
+  eventType        String             // raw provider string, e.g. "charge.success"
+  payload          Json?              // parsed body, only for valid JSON + valid signature
+  rawBody          String             // exact bytes received (truncated if oversized + unauthenticated)
+  signatureValid   Boolean            @default(false)
+  dedupeKey        String
+  status           WebhookEventStatus @default(RECEIVED)
+  attempts         Int                @default(0)
+  lastError        String?
+  correlationId    String
+  receivedAt       DateTime           @default(now())
+  processedAt      DateTime?
+  claimedAt        DateTime?
+  availableAt      DateTime           @default(now())
+
+  // Idempotency layer 1. Quarantined rows (null account) are not deduped: acceptable.
+  @@unique([paymentAccountId, dedupeKey])
+  // Worker query: oldest unprocessed events across all accounts.
+  @@index([status, receivedAt])
+  @@index([paymentAccountId, receivedAt])
+}
+
+model Payment {
+  id                String         @id @default(uuid())
+  paymentAccountId  String
+  paymentAccount    PaymentAccount @relation(fields: [paymentAccountId], references: [id])
+  organizationId    String
+  organization      Organization   @relation(fields: [organizationId], references: [id])
+  branchId          String?        // copied from the account at write time
+  providerReference String
+  providerPaymentId String?        // informational only, NOT part of any unique
+  amountMinor       BigInt         // kobo; convert to string/number at the API boundary
+  currency          String
+  method            String
+  status            PaymentStatus  @default(PENDING)
+  occurredAt        DateTime
+  receivedAt        DateTime       @default(now())
+
+  // Idempotency layer 2. Must not include a nullable column.
+  @@unique([paymentAccountId, providerReference])
+  @@index([organizationId, status, occurredAt])
 }
