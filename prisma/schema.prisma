@@ -169,7 +169,15 @@ model OutboxEvent {
   createdAt   DateTime  @default(now())
   processedAt DateTime?
 
+  organizationId String?   // optional: for multi-tenant filtering
+  attempts       Int       @default(0)
+  lastError      String?
+  availableAt    DateTime  @default(now())
+  lockToken      String?
+  lockedUntil    DateTime?
+
   @@index([processedAt, createdAt])
+  @@index([processedAt, availableAt, lockedUntil])
 }
 
 enum PaymentProvider {

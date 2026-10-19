@@ -1,9 +1,10 @@
 import { createHmac } from "node:crypto";
 import { verifyPaystackSignature } from "./paystack-signature";
 
-const secret = 'sk_test_dummy'
+const secret = 'sk_test_dummy';
 const body = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: 'r1' } }));
-const sign = (b: Buffer, s = secret) => createHmac('sha256', s).update(b).digest('hex');
+const sign = (b: Buffer, s = secret) =>
+    createHmac('sha512', s).update(b).digest('hex');
 
 describe('verifyPaystackSignature', () => {
     it('accepts a valid signature', () => {

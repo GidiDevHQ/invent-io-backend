@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE " vent" (
+CREATE TABLE "OutboxEvent" (
     "id" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "payload" JSONB NOT NULL,

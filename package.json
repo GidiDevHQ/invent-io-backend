@@ -14,6 +14,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "start:worker": "node dist/worker",
+    "outbox:retry": "ts-node -T scripts/retry-outbox-event.ts",
     "openapi:export": "ts-node -T scripts/export-openapi.ts",
     "lint": "oxlint --type-aware src/ test/",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",

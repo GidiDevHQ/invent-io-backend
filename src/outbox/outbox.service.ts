@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 export interface OutboxEventInput {
     type: string;
     payload: unknown;
+    organizationId?: string;
 }
 
 /**
@@ -12,7 +13,7 @@ export interface OutboxEventInput {
  */
 export interface OutboxTx {
     outboxEvent: {
-        create(args: { data: { type: string; payload: unknown } }): Promise<unknown>;
+        create(args: { data: { type: string; payload: unknown; organizationId?: string } }): Promise<unknown>;
     };
 }
 
@@ -25,7 +26,9 @@ export class OutboxService {
      */
     async enqueue(tx: OutboxTx, event: OutboxEventInput): Promise<void> {
         await tx.outboxEvent.create({
-            data: { type: event.type, payload: event.payload as never },
+            data: { type: event.type, 
+                payload: event.payload as never,
+                organizationId: event.organizationId },
         });
     }
 }
