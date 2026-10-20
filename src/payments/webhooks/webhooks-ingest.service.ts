@@ -3,7 +3,6 @@ import { createHash, randomUUID } from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
 import { decryptSecret } from "../credentials-crypto";
 import { verifyPaystackSignature } from "../paystack-signature";
-import { SignatureKind } from "typescript";
 
 export type IngestOutcome = 'ACCEPTED' | 'DUPLICATE' | 'QUARANTINED' | 'REJECTED';
 const MAX_STORED_BODY_BYTES = 64 * 1024;
@@ -50,16 +49,23 @@ export class WebhookIngestService {
         const valid = verifyPaystackSignature(params.rawBody, params.signature, secret);
 
         if (!valid) {
-            await this.prisma.webhookEvent.create({
-                data: {
-                    paymentAccountId: account.id,
-                    eventType: 'unknown',
-                    rawBody: storedBody,
-                    signatureValid: false,
-                    dedupeKey: sha256(params.rawBody),
-                    correlationId,
-                },
-            });
+            try {
+                await this.prisma.webhookEvent.create({
+                    data: {
+                        paymentAccountId: account.id,
+                        eventType: 'unknown',
+                        rawBody: storedBody,
+                        signatureValid: false,
+                        dedupeKey: sha256(params.rawBody),
+                        status: 'REJECTED',
+                        correlationId,
+                    },
+                });
+            } catch (e: any) {
+                if (e?.code !== 'P2002' || !e.meta?.target?.includes('dedupeKey')) {
+                    throw e;
+                }
+            }
             this.log.warn(`Webhook received with invalid signature, correlationId=${correlationId}, integrationToken=${sha256(params.integrationToken)}`);
             return 'REJECTED'
         }

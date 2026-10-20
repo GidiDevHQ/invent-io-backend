@@ -9,6 +9,7 @@ import { AuditModule } from './audit/audit.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { OutboxModule } from './outbox/outbox.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { OutboxModule } from './outbox/outbox.module';
     CatalogModule,
     InventoryModule,
     OutboxModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
