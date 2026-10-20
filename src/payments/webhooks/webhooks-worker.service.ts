@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
+import { WebhookProcessorService } from "./webhook-processor.service";
 
 const MAX_ATTEMPTS = 5;
 
@@ -9,7 +10,10 @@ export class WebhookWorkerService implements OnModuleInit, OnModuleDestroy {
     private timer?: ReturnType<typeof setInterval>;
     private running = false;
 
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly processor: WebhookProcessorService,
+    ) {}
 
     onModuleInit() {
         if (process.env.WEBHOOK_WORKER_ENABLED !== 'true') return;
@@ -59,9 +63,7 @@ export class WebhookWorkerService implements OnModuleInit, OnModuleDestroy {
 
     private async handle(id: string) {
         try {
-            // TODO: normalize payload -> ONE transaction that writes Payment + AuditLog +
-            // outbox 'payment.confirmed' and marks this event PROCESSED.
-            throw new Error('normalizer not implemented'); // deliberate: never mark PROCESSED without doing the work
+            await this.processor.process(id);
         } catch (error: unknown) {
             const ev = await this.prisma.webhookEvent.findUniqueOrThrow({ where: { id } });
             const message = error instanceof Error ? error.message : String(error);

@@ -133,14 +133,27 @@ Tunnel. Use the tunnel's HTTPS origin as `PUBLIC_BASE_URL`.
    active. If the tunnel URL changes, update `PUBLIC_BASE_URL`, create a new
    account/token, and update the Paystack webhook URL.
 
-## Ingestion rules (ADR 001 §2, §4)
+## Current Flow A processing behavior
 
-1. Verify HMAC SHA512 over the **raw body**, timing-safe, before storing.
-2. Persist raw payload; insert `PENDING` payment (idempotent on
-   `(provider, providerRef)`).
-3. For MANAGED, append a `DVA_COLLECTION` ledger credit in the same transaction.
-4. Write `outbox 'payment.received'` **in the same transaction**; return 200 fast.
-5. Unknown token / unmatched customer_code → 200 + log, no action.
+The implemented path is DIRECT/Flow A only. It verifies HMAC-SHA512 over the
+raw request bytes, persists valid webhook events, and processes
+`charge.success` asynchronously. The worker creates a `SUCCEEDED` `Payment`,
+an audit entry, an outbox `payment.confirmed` event, and marks the webhook
+`PROCESSED` in one database transaction. Payment idempotency is enforced by
+`(paymentAccountId, providerReference)`; a duplicate matching payment
+reference is marked processed without another audit or outbox event. Invalid
+event shapes and unsupported event types are quarantined.
+
+To exercise processing locally, set `WEBHOOK_WORKER_ENABLED=true` for the API
+process after configuring the database, Redis, encryption key, and seeded
+test account. The API acknowledges after durable webhook receipt; payment
+creation is asynchronous. Confirm the `WebhookEvent`, `Payment`, `AuditLog`,
+and `OutboxEvent` rows after delivery.
+
+MANAGED/DVA provisioning, platform webhook routing, settlement tracking, and
+ledger behavior are not implemented by this contract yet. The ADR's
+`payment.received` name and this implementation's `payment.confirmed` name
+must be reconciled before building consumers against either event.
 
 ## What `sales` relies on (so it can be built in parallel)
 
@@ -154,9 +167,10 @@ Tunnel. Use the tunnel's HTTPS origin as `PUBLIC_BASE_URL`.
 
 ## Outbox event
 
-`type: 'payment.received'`, `payload: { paymentId, organizationId, branchId,
-amount: string /* BigInt serialized */, currency }`. Consumed by the worker →
-WebSocket gateway → web dashboard.
+Current Flow A emits `type: 'payment.confirmed'` with
+`{ paymentId, organizationId, branchId, reference, amountMinor: string,
+currency }`. BigInt amounts are serialized as decimal strings. WebSocket
+delivery and payment-list APIs are not implemented yet.
 
 ## Open items to confirm with Engineer A
 

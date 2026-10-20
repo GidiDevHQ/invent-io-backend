@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '../generated/prisma/client/client';
 
 export interface OutboxEventInput {
     type: string;
-    payload: unknown;
+    payload: Prisma.InputJsonValue;
     organizationId?: string;
 }
 
@@ -13,7 +14,13 @@ export interface OutboxEventInput {
  */
 export interface OutboxTx {
     outboxEvent: {
-        create(args: { data: { type: string; payload: unknown; organizationId?: string } }): Promise<unknown>;
+        create(args: {
+            data: {
+                type: string;
+                payload: Prisma.InputJsonValue;
+                organizationId?: string;
+            };
+        }): Promise<unknown>;
     };
 }
 
@@ -26,8 +33,8 @@ export class OutboxService {
      */
     async enqueue(tx: OutboxTx, event: OutboxEventInput): Promise<void> {
         await tx.outboxEvent.create({
-            data: { type: event.type, 
-                payload: event.payload as never,
+            data: { type: event.type,
+                payload: event.payload,
                 organizationId: event.organizationId },
         });
     }
