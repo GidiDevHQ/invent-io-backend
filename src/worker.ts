@@ -1,8 +1,11 @@
 import './config/env';
 import { Logger } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
 import { Queue, Worker, type RedisOptions } from 'bullmq';
+import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
 import { OutboxPublisher } from './outbox/outbox.publisher';
+import { NotificationDispatcher } from './notifications/notification-dispatcher';
 
 export const DOMAIN_EVENTS_QUEUE = 'domain-events';
 const POLL_INTERVAL_MS = 2000;
@@ -23,16 +26,19 @@ function redisConnection(): RedisOptions {
 /**
  * Worker entrypoint. Same codebase as the API, different process:
  *  - runs the OutboxPublisher on an interval (DB -> queue)
- *  - consumes domain events from the queue
- * Real consumers (notifications, low-stock, summaries) plug into the Worker
- * handler as those modules land.
+ *  - consumes domain events from the queue and dispatches notifications
+ * Runs inside a Nest application context (no HTTP server) so consumers resolve
+ * via DI.
  */
 async function bootstrap() {
   const logger = new Logger('worker');
   const connection = redisConnection();
 
-  const prisma = new PrismaService();
-  await prisma.onModuleInit();
+  const app = await NestFactory.createApplicationContext(AppModule, {
+    logger: ['error', 'warn', 'log'],
+  });
+  const prisma = app.get(PrismaService);
+  const dispatcher = app.get(NotificationDispatcher);
 
   const queue = new Queue(DOMAIN_EVENTS_QUEUE, { connection });
   const publisher = new OutboxPublisher(prisma as never, queue);
@@ -40,9 +46,19 @@ async function bootstrap() {
   const consumer = new Worker(
     DOMAIN_EVENTS_QUEUE,
     async (job) => {
-      // Placeholder handler. Consumers must be idempotent (events are
-      // delivered at least once). Replace with real per-type handlers.
-      logger.log(`event ${job.name} (${(job.data as { id?: string })?.id})`);
+      // job.data is the full outbox row { id, type, organizationId, payload, ... }.
+      // Consumers must be idempotent (events are delivered at least once).
+      const row = (job.data ?? {}) as {
+        id?: string;
+        organizationId?: string;
+        payload?: Record<string, unknown>;
+      };
+      await dispatcher.handle({
+        id: row.id,
+        type: job.name,
+        organizationId: row.organizationId,
+        payload: row.payload ?? {},
+      });
     },
     { connection },
   );
@@ -93,11 +109,11 @@ async function bootstrap() {
     stopping = true;
     wakePoll?.();
     shutdownPromise = (async () => {
-      // Keep Prisma and queue connections alive until the in-flight poll settles.
+      // Keep connections alive until the in-flight poll settles.
       await pollLoopPromise;
       await consumer.close();
       await queue.close();
-      await prisma.onModuleDestroy();
+      await app.close();
     })();
     return shutdownPromise;
   };
