@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
+import { RealtimeService } from './realtime/realtime.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
@@ -34,5 +35,8 @@ async function bootstrap() {
   );
 
   await app.listen(process.env.PORT ?? 3000);
+
+  // Attach the Socket.IO realtime gateway to the running HTTP server.
+  app.get(RealtimeService).init(app.getHttpServer());
 }
 void bootstrap();

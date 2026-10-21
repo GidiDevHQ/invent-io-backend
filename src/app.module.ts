@@ -11,6 +11,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PaymentsModule } from './payments/payments.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     OutboxModule,
     PaymentsModule,
     NotificationsModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [AppService],
