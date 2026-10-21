@@ -276,21 +276,20 @@ model Payment {
   @@index([organizationId, status, occurredAt])
 }
 
-// A confirmed payment turned into a recorded sale. Allocation is tracked here,
+// A confirmed payment turned into a recorded sale. Allocation is tracked here, 
 // separate from Payment.status (see docs/payments-contract.md).
 model Sale {
-  id             String   @id @default(uuid())
+  id             String           @id @default(uuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  organization   Organization     @relation(fields: [organizationId], references: [id])
   branchId       String?
-  total          BigInt   // sum(unitPrice * qty), integer minor units
-  margin         BigInt   // sum((unitPrice - unitCost) * qty)
-  variance       BigInt   @default(0) // paymentAmount - total (signed); 0 when exact
-  flagged        Boolean  @default(false) // variance beyond SALE_VARIANCE_TOLERANCE
-  idempotencyKey String?  // client-supplied; replay returns the same sale
+  total          BigInt           // sum(unitPrice * qty), integer minor units
+  margin         BigInt           // sum((unitPrice - unitCost) * qty)
+  variance       BigInt           @default(0) // paymentAmount - total (signed); 0 when exact
+  flagged        Boolean          @default(false) // variance beyond SALE_VARIANCE_TOLERANCE
+  idempotencyKey String?          // client-supplied; replay returns the same sale
   createdBy      String?
-  createdAt      DateTime @default(now())
-
+  createdAt      DateTime         @default(now())
   items          SaleItem[]
   allocations    SaleAllocation[]
 
@@ -299,14 +298,14 @@ model Sale {
 }
 
 model SaleItem {
-  id        String  @id @default(uuid())
+  id        String   @id @default(uuid())
   saleId    String
-  sale      Sale    @relation(fields: [saleId], references: [id])
+  sale      Sale     @relation(fields: [saleId], references: [id])
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
   qty       Int
-  unitPrice Int     // snapshot at sale time; never recomputed from current price
-  unitCost  Int     // snapshot at sale time
+  unitPrice Int      // snapshot at sale time; never recomputed from current price
+  unitCost  Int      // snapshot at sale time
 
   @@index([saleId])
 }
@@ -321,4 +320,20 @@ model SaleAllocation {
   amount    BigInt
 
   @@index([saleId])
+}
+
+// Every notification send attempt, across channels. For audit + delivery tracking.
+model NotificationLog {
+  id                String   @id @default(uuid())
+  organizationId    String
+  userId            String?
+  channel           String   // "whatsapp" | "email" | "simulated"
+  template          String   // named template, e.g. "payment.received"
+  recipient         String   // phone or email (redact PII in logs, not here)
+  status            String   // "SENT" | "FAILED"
+  providerMessageId String?
+  error             String?
+  createdAt         DateTime @default(now())
+
+  @@index([organizationId, createdAt])
 }
