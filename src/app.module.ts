@@ -12,6 +12,7 @@ import { OutboxModule } from './outbox/outbox.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SalesModule } from './sales/sales.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     PaymentsModule,
     SalesModule,
     NotificationsModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

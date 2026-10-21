@@ -6,6 +6,10 @@ import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
 import { OutboxPublisher } from './outbox/outbox.publisher';
 import { NotificationDispatcher } from './notifications/notification-dispatcher';
+import { createRealtimeEmitter } from './realtime/realtime.emitter';
+
+// Events that wake the open web dashboard in real time.
+const REALTIME_EVENTS = new Set(['payment.confirmed', 'stock.low', 'sale.created']);
 
 export const DOMAIN_EVENTS_QUEUE = 'domain-events';
 const POLL_INTERVAL_MS = 2000;
@@ -39,6 +43,7 @@ async function bootstrap() {
   });
   const prisma = app.get(PrismaService);
   const dispatcher = app.get(NotificationDispatcher);
+  const realtime = createRealtimeEmitter();
 
   const queue = new Queue(DOMAIN_EVENTS_QUEUE, { connection });
   const publisher = new OutboxPublisher(prisma as never, queue);
@@ -59,6 +64,11 @@ async function bootstrap() {
         organizationId: row.organizationId,
         payload: row.payload ?? {},
       });
+
+      // Wake the open web dashboard in real time (in addition to email/WhatsApp).
+      if (row.organizationId && REALTIME_EVENTS.has(job.name)) {
+        realtime.emitToOrg(row.organizationId, job.name, row.payload ?? {});
+      }
     },
     { connection },
   );
@@ -113,6 +123,7 @@ async function bootstrap() {
       await pollLoopPromise;
       await consumer.close();
       await queue.close();
+      await realtime.close();
       await app.close();
     })();
     return shutdownPromise;
