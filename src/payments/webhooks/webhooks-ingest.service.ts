@@ -7,6 +7,35 @@ import { verifyPaystackSignature } from "../paystack-signature";
 export type IngestOutcome = 'ACCEPTED' | 'DUPLICATE' | 'QUARANTINED' | 'REJECTED';
 const MAX_STORED_BODY_BYTES = 64 * 1024;
 const sha256 = (s: string | Buffer) => createHash('sha256').update(s).digest('hex');
+const WEBHOOK_DEDUPE_CONSTRAINT = 'WebhookEvent_paymentAccountId_dedupeKey_key';
+
+function isDuplicateWebhookEvent(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false;
+    const prismaError = error as { code?: unknown; meta?: unknown };
+    if (prismaError.code !== 'P2002' || typeof prismaError.meta !== 'object' || prismaError.meta === null) {
+        return false;
+    }
+
+    const meta = prismaError.meta as Record<string, unknown>;
+    const target = meta.target;
+    if (
+        (Array.isArray(target) && target.includes('dedupeKey')) ||
+        (typeof target === 'string' && target.includes('dedupeKey'))
+    ) {
+        return true;
+    }
+
+    const adapterError = meta.driverAdapterError;
+    if (typeof adapterError !== 'object' || adapterError === null) return false;
+    const cause = (adapterError as Record<string, unknown>).cause;
+    if (typeof cause !== 'object' || cause === null) return false;
+    const constraint = (cause as Record<string, unknown>).constraint;
+    return (
+        typeof constraint === 'object' &&
+        constraint !== null &&
+        (constraint as Record<string, unknown>).index === WEBHOOK_DEDUPE_CONSTRAINT
+    );
+}
 
 @Injectable()
 export class WebhookIngestService {
@@ -61,10 +90,8 @@ export class WebhookIngestService {
                         correlationId,
                     },
                 });
-            } catch (e: any) {
-                if (e?.code !== 'P2002' || !e.meta?.target?.includes('dedupeKey')) {
-                    throw e;
-                }
+            } catch (error: unknown) {
+                if (!isDuplicateWebhookEvent(error)) throw error;
             }
             this.log.warn(`Webhook received with invalid signature, correlationId=${correlationId}, integrationToken=${sha256(params.integrationToken)}`);
             return 'REJECTED'
@@ -98,12 +125,12 @@ export class WebhookIngestService {
                     correlationId,
                 }
             });
-        } catch (e: any) {
-            if (e?.code === 'P2002' && e.meta?.target?.includes('dedupeKey')) {
+        } catch (error: unknown) {
+            if (isDuplicateWebhookEvent(error)) {
                 this.log.warn(`Duplicate webhook event for account ${account.id}, eventType ${eventType}, reference ${reference}`);
                 return 'DUPLICATE';
             }
-            throw e;
+            throw error;
         }
         return 'ACCEPTED'
     }

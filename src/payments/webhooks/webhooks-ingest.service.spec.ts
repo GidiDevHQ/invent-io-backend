@@ -50,7 +50,15 @@ describe('WebhookIngestService', () => {
             .mockResolvedValueOnce({})
             .mockRejectedValueOnce({
                 code: 'P2002',
-                meta: { target: ['paymentAccountId', 'dedupeKey'] },
+                meta: {
+                    driverAdapterError: {
+                        cause: {
+                            constraint: {
+                                index: 'WebhookEvent_paymentAccountId_dedupeKey_key',
+                            },
+                        },
+                    },
+                },
             });
 
         const params = { integrationToken, rawBody, signature: undefined };

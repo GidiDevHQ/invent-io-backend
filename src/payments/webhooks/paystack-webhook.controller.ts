@@ -1,4 +1,4 @@
-import { 
+import {
     BadRequestException,
     Controller,
     Headers,
@@ -6,7 +6,6 @@ import {
     Param,
     Post,
     Req,
-    UnauthorizedException
  } from "@nestjs/common";
  import type { RawBodyRequest } from "@nestjs/common";
  import type { Request } from "express";
@@ -28,14 +27,17 @@ import {
             throw new BadRequestException('Raw body unavailable');
         }
 
-        const outcome = await this.ingest.ingestPaystack({
+        // Always acknowledge with 200, whatever the outcome. Unknown tokens and
+        // bad signatures must reveal nothing (CLAUDE.md) and must not trigger
+        // provider retries. The ingest service persists and logs rejected /
+        // quarantined events for review.
+        await this.ingest.ingestPaystack({
             integrationToken,
             rawBody: req.rawBody,
             signature,
             correlationId: requestId,
         });
 
-        if (outcome === 'REJECTED' || outcome === 'QUARANTINED') throw new UnauthorizedException();
         return { received: true };
     }
  }

@@ -10,6 +10,7 @@ import { CatalogModule } from './catalog/catalog.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PaymentsModule } from './payments/payments.module';
+import { SalesModule } from './sales/sales.module';
 import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
@@ -26,6 +27,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     InventoryModule,
     OutboxModule,
     PaymentsModule,
+    SalesModule,
     NotificationsModule,
   ],
   controllers: [AppController],
