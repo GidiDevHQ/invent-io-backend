@@ -23,6 +23,7 @@ model Organization {
   products  Product[]
   paymentAccounts PaymentAccount[]
   payments  Payment[]
+  sales     Sale[]
 }
 
 model Branch {
@@ -85,6 +86,7 @@ model Product {
   @@index([organizationId, active])
   branchStock    BranchStock[]
   stockMovements StockMovement[]
+  saleItems      SaleItem[]
 }
 
 enum StockMovementType {
@@ -272,6 +274,52 @@ model Payment {
   // Idempotency layer 2. Must not include a nullable column.
   @@unique([paymentAccountId, providerReference])
   @@index([organizationId, status, occurredAt])
+}
+
+// A confirmed payment turned into a recorded sale. Allocation is tracked here, 
+// separate from Payment.status (see docs/payments-contract.md).
+model Sale {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  branchId       String?
+  total          BigInt           // sum(unitPrice * qty), integer minor units
+  margin         BigInt           // sum((unitPrice - unitCost) * qty)
+  variance       BigInt           @default(0) // paymentAmount - total (signed); 0 when exact
+  flagged        Boolean          @default(false) // variance beyond SALE_VARIANCE_TOLERANCE
+  idempotencyKey String?          // client-supplied; replay returns the same sale
+  createdBy      String?
+  createdAt      DateTime         @default(now())
+  items          SaleItem[]
+  allocations    SaleAllocation[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, createdAt])
+}
+
+model SaleItem {
+  id        String   @id @default(uuid())
+  saleId    String
+  sale      Sale     @relation(fields: [saleId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  qty       Int
+  unitPrice Int      // snapshot at sale time; never recomputed from current price
+  unitCost  Int      // snapshot at sale time
+
+  @@index([saleId])
+}
+
+// One sale per payment: the unique paymentId is the atomic double-tap guard.
+// No relation to Payment (owned by payments); the service validates existence.
+model SaleAllocation {
+  id        String @id @default(uuid())
+  saleId    String
+  sale      Sale   @relation(fields: [saleId], references: [id])
+  paymentId String @unique
+  amount    BigInt
+
+  @@index([saleId])
 }
 
 // Every notification send attempt, across channels. For audit + delivery tracking.
