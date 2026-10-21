@@ -46,10 +46,18 @@ async function bootstrap() {
   const consumer = new Worker(
     DOMAIN_EVENTS_QUEUE,
     async (job) => {
+      // job.data is the full outbox row { id, type, organizationId, payload, ... }.
       // Consumers must be idempotent (events are delivered at least once).
+      const row = (job.data ?? {}) as {
+        id?: string;
+        organizationId?: string;
+        payload?: Record<string, unknown>;
+      };
       await dispatcher.handle({
+        id: row.id,
         type: job.name,
-        payload: (job.data ?? {}) as Record<string, unknown>,
+        organizationId: row.organizationId,
+        payload: row.payload ?? {},
       });
     },
     { connection },

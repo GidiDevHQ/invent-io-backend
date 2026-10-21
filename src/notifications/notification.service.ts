@@ -13,6 +13,7 @@ export interface SendNotification {
     to: string;
     template: string;
     data?: TemplateData;
+    eventId?: string | null;
 }
 
 export interface SendOutcome {
@@ -73,6 +74,7 @@ export class NotificationService {
             data: {
                 organizationId: params.organizationId,
                 userId: params.userId ?? null,
+                eventId: params.eventId ?? null,
                 channel: params.channel,
                 template: params.template,
                 recipient: params.to,

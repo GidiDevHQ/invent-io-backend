@@ -1,11 +1,17 @@
 import { NotificationDispatcher } from './notification-dispatcher';
 
-function makeDispatcher(members: { userId: string; email?: string; phone?: string }[]) {
+function makeDispatcher(
+    members: { userId: string; email?: string; phone?: string }[],
+    alreadyDispatched = false,
+) {
     const prisma = {
         membership: {
             findMany: jest.fn().mockResolvedValue(
                 members.map((m) => ({ userId: m.userId, user: { email: m.email ?? '', phone: m.phone ?? null } })),
             ),
+        },
+        notificationLog: {
+            findFirst: jest.fn().mockResolvedValue(alreadyDispatched ? { id: 'prior' } : null),
         },
     };
     const notifications = { send: jest.fn().mockResolvedValue({ id: 'log', status: 'SENT' }) };
@@ -55,6 +61,17 @@ describe('NotificationDispatcher', () => {
     it('ignores unknown event types', async () => {
         const { dispatcher, notifications } = makeDispatcher([{ userId: 'u1', email: 'a@b.com' }]);
         await dispatcher.handle({ type: 'something.else', payload: { organizationId: 'org-1' } });
+        expect(notifications.send).not.toHaveBeenCalled();
+    });
+
+    it('skips an event already dispatched (dedup on redelivery)', async () => {
+        const { dispatcher, notifications } = makeDispatcher([{ userId: 'u1', email: 'a@b.com' }], true);
+        await dispatcher.handle({
+            id: 'evt-1',
+            type: 'payment.confirmed',
+            organizationId: 'org-1',
+            payload: { amountMinor: '1000', currency: 'NGN' },
+        });
         expect(notifications.send).not.toHaveBeenCalled();
     });
 });
