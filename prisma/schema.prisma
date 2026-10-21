@@ -273,3 +273,19 @@ model Payment {
   @@unique([paymentAccountId, providerReference])
   @@index([organizationId, status, occurredAt])
 }
+
+// Every notification send attempt, across channels. For audit + delivery tracking.
+model NotificationLog {
+  id                String   @id @default(uuid())
+  organizationId    String
+  userId            String?
+  channel           String   // "whatsapp" | "email" | "simulated"
+  template          String   // named template, e.g. "payment.received"
+  recipient         String   // phone or email (redact PII in logs, not here)
+  status            String   // "SENT" | "FAILED"
+  providerMessageId String?
+  error             String?
+  createdAt         DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+}
