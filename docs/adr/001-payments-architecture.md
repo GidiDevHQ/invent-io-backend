@@ -76,3 +76,22 @@ React Native mobile app the spec assumed); the backend remains client-agnostic.
   `Money` type change ripples through `common` and its callers.
 - Revisit later: the sync module's offline-first emphasis (mobile-shaped), and
   real custody + Web Push as future work.
+
+## Amendment (2026-10-21) — reconciled to the shipped DIRECT implementation
+The PAY-01 build (DIRECT/Flow A) settled two points differently from §3–§4
+above; we adopt the implementation as the source of truth and updated
+`docs/payments-contract.md` to match:
+- **Payment status** is a provider-settlement status — `PENDING | SUCCEEDED |
+  FAILED` — not `PENDING → MATCHED`. A verified `charge.success` creates a
+  `SUCCEEDED` payment. **Allocation is tracked separately from payment status.**
+- **The outbox event is `payment.confirmed`** (not `payment.received`), emitted
+  in the same transaction as the `Payment` create.
+- **Allocation double-tap guard** (for `sales`) is a **unique
+  `SaleAllocation.paymentId`** plus the client `idempotencyKey`, not a status
+  flip — reusing the unique-constraint idempotency pattern already used in
+  payments/webhook ingestion.
+
+Unchanged and still required: BigInt integer-minor-unit money, raw-body
+timing-safe HMAC, persist-raw → 200-fast → async, dual flow + simulated managed
+wallet (DIRECT built; MANAGED pending), WebSocket transport for the web client.
+Outstanding: unknown token must return **200 + log**, not 401.

@@ -1,182 +1,141 @@
 # Payments contract
 
 The agreed interface for the `payments` module. Owned by Engineer A; `sales`
-(Engineer B) builds against the `Payment` shape and state machine below.
-Decisions behind this are in `docs/adr/001-payments-architecture.md`.
+(Engineer B) builds against the `Payment` shape and the allocation rule below.
+Architecture decisions: `docs/adr/001-payments-architecture.md`.
+
+> **Reconciled to the implementation (2026-10-21).** Where the original ADR said
+> `PENDING → MATCHED` with a `payment.received` event, the shipped code uses a
+> provider-settlement status (`SUCCEEDED`) and a `payment.confirmed` event, and
+> **allocation is tracked separately from payment status** (see "What `sales`
+> relies on"). This doc now reflects what is built; ADR 001 carries an amendment
+> noting the change.
 
 ## Models (Prisma)
 
 ### PaymentAccount
+How a business receives money.
+| Field | Type | Notes |
+|---|---|---|
+| id | String | PK (uuid v4) |
+| organizationId | String | tenant scope |
+| branchId | String? | optional; copied onto `Payment` at write time |
+| provider | enum `PaymentProvider` | `PAYSTACK` |
+| providerAccountId | String? | may be unknown until first real event |
+| status | enum `PaymentAccountStatus` | `ACTIVE` \| `DISABLED` |
+| integrationTokenHash | String (unique) | sha256 of the per-account webhook token (DIRECT) |
+| secretCiphertext | String | AES-256-GCM-encrypted webhook signing secret |
+| keyVersion | Int | encryption key version |
 
-How a business receives money. One per branch (or per org).
+Unique: `integrationTokenHash`; `(provider, providerAccountId)`.
+**Planned for MANAGED (not yet built):** `integrationType (DIRECT|MANAGED)`,
+`paystackCustomerCode`, `dvaBank`, `dvaAccountNumber`.
 
-| Field                      | Type     | Notes                                                |
-| -------------------------- | -------- | ---------------------------------------------------- |
-| id                         | String   | PK (uuid v4)                                         |
-| organizationId             | String   | tenant scope                                         |
-| branchId                   | String?  | optional                                             |
-| provider                   | String   | e.g. `paystack`                                      |
-| integrationType            | enum     | `DIRECT` \| `MANAGED`                                |
-| webhookToken               | String?  | DIRECT: unique; identifies this account from the URL |
-| encryptedSecret            | String   | AES-256-GCM; the webhook signing secret (DIRECT)     |
-| paystackCustomerCode       | String?  | MANAGED: maps DVA events to this account             |
-| dvaBank / dvaAccountNumber | String?  | MANAGED: displayed to the merchant                   |
-| createdAt                  | DateTime |                                                      |
+### WebhookEvent (raw ingest log + first idempotency layer)
+Raw bytes + verification result; the worker processes these asynchronously.
+| Field | Type | Notes |
+|---|---|---|
+| id | String | PK |
+| paymentAccountId | String? | null = quarantined (unknown account) |
+| eventType | String | e.g. `charge.success` |
+| payload | Json? | only when signed + valid JSON |
+| rawBody | String | exact bytes (truncated if oversized + unauthenticated) |
+| signatureValid | Boolean | |
+| dedupeKey | String | sha256(`eventType:reference:body`) |
+| status | enum `WebhookEventStatus` | `RECEIVED` `PROCESSING` `PROCESSED` `FAILED` `QUARANTINED` `REJECTED` |
+| attempts / lastError / correlationId / receivedAt / processedAt / availableAt | | retry + audit metadata |
 
-Unique: DIRECT `webhookToken`; MANAGED `paystackCustomerCode`.
+Unique: `(paymentAccountId, dedupeKey)` — idempotency layer 1.
 
 ### Payment
+| Field | Type | Notes |
+|---|---|---|
+| id | String | PK (uuid v4) |
+| paymentAccountId | String | FK |
+| organizationId / branchId | String / String? | tenant scope (copied from the account) |
+| providerReference | String | Paystack reference |
+| providerPaymentId | String? | informational only |
+| amountMinor | **BigInt** | integer minor units (kobo); serialize to string at the API edge |
+| currency | String | ISO 4217 |
+| method | String | card / transfer / … (Paystack `channel`) |
+| status | enum `PaymentStatus` | `PENDING` \| `SUCCEEDED` \| `FAILED` (refunds = separate records later) |
+| occurredAt / receivedAt | DateTime | |
 
-| Field                     | Type     | Notes                                                         |
-| ------------------------- | -------- | ------------------------------------------------------------- |
-| id                        | String   | PK (uuid v4)                                                  |
-| organizationId / branchId | String   | tenant scope                                                  |
-| provider                  | String   | `paystack` / `cash`                                           |
-| providerRef               | String   | Paystack reference; cash → generated                          |
-| amount                    | BigInt   | integer minor units (kobo)                                    |
-| currency                  | String   | ISO 4217                                                      |
-| method                    | String   | card / transfer / cash                                        |
-| status                    | enum     | `PENDING` \| `MATCHED` \| `IGNORED` \| `REFUNDED` \| `FAILED` |
-| rawPayload                | Json     | stored before processing                                      |
-| receivedAt                | DateTime |                                                               |
+Unique: `(paymentAccountId, providerReference)` — idempotency layer 2.
 
-Unique: `(provider, providerRef)` — the idempotency key.
+### LedgerEntry — MANAGED wallet, **planned + simulated** (ADR 001 §5)
+Not yet built. Append-only; `amountMinor` BigInt (credit `+`, settlement `-`),
+`type` (`DVA_COLLECTION` | `SETTLEMENT`), `status`, `paymentId?`. Simulated in
+Paystack test mode; **no real fund custody**.
 
-### WebhookEvent (raw ingest log) and the MANAGED wallet ledger
-
-- `WebhookEvent`: raw payload + headers + verification result, for audit/replay.
-- `LedgerEntry` (MANAGED, **simulated** per ADR 001): append-only; `amount`
-  BigInt (credit `+`, settlement `-`), `type` (`DVA_COLLECTION` | `SETTLEMENT`),
-  `status` (`PENDING` | `SUCCESSFUL` | `FAILED`), `paymentId?`. Balance =
-  `SUM(amount WHERE status='SUCCESSFUL')`.
-
-## State machine (only `PaymentService` mutates `status`)
-
+## Lifecycle (as built)
 ```
-PENDING --match--> MATCHED        (allocation claims it; see below)
-PENDING --ignore--> IGNORED
-MATCHED --refund--> REFUNDED
-(provider failure) --> FAILED
+WebhookEvent: RECEIVED → PROCESSING → PROCESSED        (or FAILED / QUARANTINED / REJECTED)
+Payment:      SUCCEEDED   (created on a verified charge.success)
+              PENDING / FAILED reserved for other sources (e.g. manual/cash, failures)
 ```
+Only the payments worker/service writes `Payment` and `WebhookEvent`.
+Refunds/chargebacks will be **separate records**, not a status flag.
 
-## Endpoints (all under `/v1`)
+## What `sales` relies on — allocation (reconciled)
+A confirmed payment is `SUCCEEDED` **and unallocated**. Allocation does not flip
+the payment status; instead a payment can back **exactly one sale**, enforced by
+a unique constraint — "use the idempotency pattern already in use" rather than a
+status claim:
 
-| Method | Path                                   | Purpose                                                    |
-| ------ | -------------------------------------- | ---------------------------------------------------------- |
-| POST   | `/webhooks/paystack/:integrationToken` | DIRECT receiver (per-account secret)                       |
-| POST   | `/webhooks/paystack/platform`          | MANAGED receiver (platform secret, route by customer_code) |
-| POST   | `/payments/manual`                     | cash/manual → PENDING with generated ref                   |
-| GET    | `/payments?status=pending&branchId=`   | pending list                                               |
-| POST   | `/payments/:id/ignore`                 | → IGNORED                                                  |
+- `sales` lists `SUCCEEDED` payments with **no `SaleAllocation`** → the
+  "what did you sell?" queue.
+- Allocation creates `Sale` + `SaleAllocation` in one transaction;
+  **`SaleAllocation.paymentId` is unique**, so two concurrent confirms → one
+  wins, the other hits `P2002` → **409 conflict** (the double-tap guard).
+- The request carries a client `idempotencyKey`; a replay returns the original
+  sale instead of erroring.
+- Split payments later: relax to many allocations summing to the payment amount.
 
-Allocation (`POST /payments/:id/match`) lives in **sales**, not payments.
+This replaces the old `PENDING → MATCHED` claim and needs a 👍 from Engineer A
+(it lives on the sales side, referencing his `Payment.id`).
+
+## Outbox event (as built)
+`type: 'payment.confirmed'`, payload
+`{ paymentId, organizationId, branchId, reference, amountMinor: string, currency }`
+(BigInt serialized as a decimal string). Emitted in the same transaction as the
+`Payment` create. Consumed by the worker → (web) WebSocket gateway — not yet built.
+
+## Endpoints (`/v1`)
+| Method | Path | Status |
+|---|---|---|
+| POST | `/webhooks/paystack/:integrationToken` | **built** — DIRECT receiver (per-account secret) |
+| POST | `/webhooks/paystack/platform` | planned — MANAGED (platform secret, route by `customer_code`) |
+| POST | `/payments/manual` | planned — cash/manual |
+| GET | `/payments?status=&branchId=` | planned — list |
+
+Allocation (`POST /payments/:id/match` or a sales route) lives in **sales**.
+
+## Known gaps to close (tracked)
+- 🔴 Unknown token currently returns **401**; must be **200 + log** (CLAUDE.md:
+  unknown webhook tokens reveal nothing and are not retried by the provider).
+- 🟡 MANAGED/DVA flow, platform webhook routing, and the simulated wallet/ledger
+  are not built yet (ADR 001 decision: dual flow + simulated escrow).
+- Rate limiting on the webhook route (abuse/DoS on quarantine storage).
 
 ## Configure a Paystack test webhook (DIRECT)
-
-The Paystack dashboard needs a publicly reachable HTTPS URL. `localhost` is
-only reachable on your machine, so for local development run the API and
-expose its port (default `3000`) through a tunnel such as ngrok or Cloudflare
-Tunnel. Use the tunnel's HTTPS origin as `PUBLIC_BASE_URL`.
-
-1. Start the database and Redis, then start the API from `invent-io-backend`:
-
-   ```sh
-   npm run start:dev
-   ```
-
-2. Start an HTTPS tunnel to the API port. For example:
-
-   ```sh
-   ngrok http 3000
-   ```
-
-   Copy the HTTPS forwarding origin shown by the tunnel, for example
-   `https://example.ngrok-free.app`.
-
-3. In the backend `.env`, set the following values. Obtain the organization ID
-   from your database; use a Paystack **test** secret key from the Paystack
-   dashboard. Generate a 32-byte encryption key with Node.js:
-
-   ```sh
-   node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
-   ```
-
-   Put that output in `CREDENTIALS_ENCRYPTION_KEY`:
-
-   ```dotenv
-   PUBLIC_BASE_URL=https://example.ngrok-free.app
-   SEED_ORG_ID=<organization-id>
-   SEED_PAYSTACK_SECRET_KEY=sk_test_...
-   CREDENTIALS_ENCRYPTION_KEY=<base64-encoded-32-byte-key>
-   ```
-
-   Keep the Paystack secret and encryption key private. Do not commit `.env`.
-
-4. From `invent-io-backend`, create a test `PaymentAccount` and print its
-   webhook URL:
-
-   ```sh
-   npx ts-node -T scripts/seed-payment-account.ts
-   ```
-
-   The output is the complete URL:
-
-   ```text
-   https://example.ngrok-free.app/v1/webhooks/paystack/<integration-token>
-   ```
-
-   The token is stored only as a hash, so save the printed URL; it cannot be
-   retrieved from the database later. Each run creates another account/token.
-
-5. In Paystack's **test-mode** webhook settings, paste that complete URL and
-   trigger a test event. The API must be running and the tunnel must remain
-   active. If the tunnel URL changes, update `PUBLIC_BASE_URL`, create a new
-   account/token, and update the Paystack webhook URL.
-
-## Current Flow A processing behavior
-
-The implemented path is DIRECT/Flow A only. It verifies HMAC-SHA512 over the
-raw request bytes, persists valid webhook events, and processes
-`charge.success` asynchronously. The worker creates a `SUCCEEDED` `Payment`,
-an audit entry, an outbox `payment.confirmed` event, and marks the webhook
-`PROCESSED` in one database transaction. Payment idempotency is enforced by
-`(paymentAccountId, providerReference)`; a duplicate matching payment
-reference is marked processed without another audit or outbox event. Invalid
-event shapes and unsupported event types are quarantined.
-
-To exercise processing locally, set `WEBHOOK_WORKER_ENABLED=true` for the API
-process after configuring the database, Redis, encryption key, and seeded
-test account. The API acknowledges after durable webhook receipt; payment
-creation is asynchronous. Confirm the `WebhookEvent`, `Payment`, `AuditLog`,
-and `OutboxEvent` rows after delivery.
-
-MANAGED/DVA provisioning, platform webhook routing, settlement tracking, and
-ledger behavior are not implemented by this contract yet. The ADR's
-`payment.received` name and this implementation's `payment.confirmed` name
-must be reconciled before building consumers against either event.
-
-## What `sales` relies on (so it can be built in parallel)
-
-- A `Payment` row in `PENDING` with `id`, `amount: BigInt`, `currency`,
-  `branchId`, `organizationId`.
-- **Atomic claim:** allocation does
-  `updateMany({ where: { id, status: 'PENDING' }, data: { status: 'MATCHED' }})`;
-  `count === 0` → 409 conflict. This is the double-tap guard.
-- `payments` exposes a `PaymentService` claim method (or sales performs the
-  conditional update within its transaction) — **to be confirmed with Engineer A.**
-
-## Outbox event
-
-Current Flow A emits `type: 'payment.confirmed'` with
-`{ paymentId, organizationId, branchId, reference, amountMinor: string,
-currency }`. BigInt amounts are serialized as decimal strings. WebSocket
-delivery and payment-list APIs are not implemented yet.
+The Paystack dashboard needs a public HTTPS URL; `localhost` isn't reachable, so
+tunnel the API port (default `3000`) with ngrok/Cloudflare Tunnel and use that
+origin as `PUBLIC_BASE_URL`.
+1. `npm run start:dev` (DB + Redis up first).
+2. `ngrok http 3000` → copy the HTTPS origin.
+3. In `.env` set `PUBLIC_BASE_URL`, `SEED_ORG_ID`, `SEED_PAYSTACK_SECRET_KEY`
+   (test key), and `CREDENTIALS_ENCRYPTION_KEY`
+   (`node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`).
+4. `npx ts-node -T scripts/seed-payment-account.ts` → prints the full webhook URL
+   `…/v1/webhooks/paystack/<integration-token>` (token stored only as a hash —
+   save the printed URL).
+5. Paste it into Paystack **test-mode** webhooks and trigger an event. Set
+   `WEBHOOK_WORKER_ENABLED=true` to process events in the API process; then check
+   the `WebhookEvent`, `Payment`, `AuditLog`, and `OutboxEvent` rows.
 
 ## Open items to confirm with Engineer A
-
-- Does `sales` call a `PaymentService.claim(tx, id)` or run the conditional
-  update itself? (Prefer a `PaymentService` method to keep the state machine in
-  payments.)
-- `OutboxEvent` column additions (`organizationId`, `attempts`, `lastError`,
-  `availableAt`) — coordinate the migration; the `OutboxPublisher` update to use
-  them is owned by whoever owns `outbox`.
+- Ratify the allocation rule above (unique `SaleAllocation.paymentId` + idempotencyKey).
+- Is there a `PaymentService` helper sales should call, or does sales own the
+  allocation transaction directly? (Prefer a thin `payments` read for
+  "unallocated SUCCEEDED payments".)

@@ -282,6 +282,164 @@
           "catalog"
         ]
       }
+    },
+    "/v1/stock/adjustments": {
+      "post": {
+        "operationId": "InventoryController_adjust_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustStockDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Restock or adjust stock with a reason",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/v1/branches/{id}/stock": {
+      "get": {
+        "operationId": "InventoryController_branchStock_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Stock levels for a branch",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/v1/branches/{id}/low-stock": {
+      "get": {
+        "operationId": "InventoryController_lowStock_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Items at or below their low-stock threshold",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/v1/branches/{branchId}/stock/{productId}": {
+      "patch": {
+        "operationId": "InventoryController_setThreshold_v1",
+        "parameters": [
+          {
+            "name": "branchId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetThresholdDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set the low-stock threshold for a product at a branch",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/v1/webhooks/paystack/{integrationToken}": {
+      "post": {
+        "operationId": "PaystackWebhookController_receive_v1",
+        "parameters": [
+          {
+            "name": "integrationToken",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PaystackWebhook"
+        ]
+      }
     }
   },
   "info": {
@@ -384,6 +542,55 @@
             "example": true
           }
         }
+      },
+      "AdjustStockDto": {
+        "type": "object",
+        "properties": {
+          "branchId": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "RESTOCK",
+              "ADJUSTMENT",
+              "RETURN"
+            ]
+          },
+          "qtyDelta": {
+            "type": "number",
+            "example": 10,
+            "description": "Signed change in units (negative to decrease)."
+          },
+          "reason": {
+            "type": "string",
+            "example": "Received supplier delivery",
+            "description": "Required reason for the adjustment."
+          }
+        },
+        "required": [
+          "branchId",
+          "productId",
+          "type",
+          "qtyDelta",
+          "reason"
+        ]
+      },
+      "SetThresholdDto": {
+        "type": "object",
+        "properties": {
+          "lowStockThreshold": {
+            "type": "number",
+            "example": 5,
+            "description": "Alert when stock is at or below this (0 disables)."
+          }
+        },
+        "required": [
+          "lowStockThreshold"
+        ]
       }
     }
   }
