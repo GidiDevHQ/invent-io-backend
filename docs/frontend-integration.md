@@ -100,7 +100,10 @@ planned/simulated.
   (DIRECT)**, **sale allocation (`/payments/:id/match`)**, **real-time WebSocket
   wake**, notifications (email/WhatsApp).
 - **Planned (design, not wired):** MANAGED/DVA onboarding, wallet + withdrawals,
-  weekly summary, a filtered payments-list endpoint, refunds UI.
+  weekly summary, a filtered payments-list endpoint, refunds UI, **device-level
+  push notifications** (opt-in Web Push — OS banners when the app is closed;
+  frontend adds a service worker + permission + `subscribe()`, backend sends via
+  VAPID. iOS needs "Add to Home Screen").
 
 ## OpenAPI / mock server
 `docs/openapi.json` is a generated export of the live REST routes — load into
