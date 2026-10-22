@@ -7,5 +7,6 @@ import { PermissionGuard } from './permission.guard';
 @Module({
   controllers: [TenancyController],
   providers: [TenantContextGuard, PermissionGuard],
+  exports: [TenantContextGuard, PermissionGuard],
 })
 export class TenancyModule {}

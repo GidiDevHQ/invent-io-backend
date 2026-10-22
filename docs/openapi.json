@@ -282,6 +282,381 @@
           "catalog"
         ]
       }
+    },
+    "/v1/stock/adjustments": {
+      "post": {
+        "operationId": "InventoryController_adjust_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustStockDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Restock or adjust stock with a reason",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/v1/branches/{id}/stock": {
+      "get": {
+        "operationId": "InventoryController_branchStock_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Stock levels for a branch",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/v1/branches/{id}/low-stock": {
+      "get": {
+        "operationId": "InventoryController_lowStock_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Items at or below their low-stock threshold",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/v1/branches/{branchId}/stock/{productId}": {
+      "patch": {
+        "operationId": "InventoryController_setThreshold_v1",
+        "parameters": [
+          {
+            "name": "branchId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetThresholdDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set the low-stock threshold for a product at a branch",
+        "tags": [
+          "inventory"
+        ]
+      }
+    },
+    "/v1/webhooks/paystack/platform": {
+      "post": {
+        "operationId": "PaystackWebhookController_receivePlatform_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PaystackWebhook"
+        ]
+      }
+    },
+    "/v1/webhooks/paystack/{integrationToken}": {
+      "post": {
+        "operationId": "PaystackWebhookController_receive_v1",
+        "parameters": [
+          {
+            "name": "integrationToken",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PaystackWebhook"
+        ]
+      }
+    },
+    "/v1/payments/managed-account": {
+      "get": {
+        "operationId": "ManagedPaymentAccountController_get_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get this organization’s managed Paystack account and DVA",
+        "tags": [
+          "managed payments"
+        ]
+      },
+      "post": {
+        "operationId": "ManagedPaymentAccountController_provision_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateManagedPaymentAccountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Provision a Paystack test subaccount and linked DVA",
+        "tags": [
+          "managed payments"
+        ]
+      }
+    },
+    "/v1/payments": {
+      "get": {
+        "operationId": "PaymentsController_listUnallocated_v1",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "SUCCEEDED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "branchId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List succeeded payments that have not been itemized",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/v1/payments/manual": {
+      "post": {
+        "operationId": "PaymentsController_createManual_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateManualPaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Record a cash payment for the itemization flow",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/v1/payments/{id}/match": {
+      "post": {
+        "operationId": "SalesController_match_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllocatePaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Allocate a confirmed payment to the items sold (creates a sale)",
+        "tags": [
+          "sales"
+        ]
+      }
+    },
+    "/v1/notifications/test": {
+      "post": {
+        "operationId": "NotificationsController_sendTest_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendNotificationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Send a templated notification over a channel (demo/verify)",
+        "tags": [
+          "notifications"
+        ]
+      }
     }
   },
   "info": {
@@ -384,6 +759,194 @@
             "example": true
           }
         }
+      },
+      "AdjustStockDto": {
+        "type": "object",
+        "properties": {
+          "branchId": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "RESTOCK",
+              "ADJUSTMENT",
+              "RETURN"
+            ]
+          },
+          "qtyDelta": {
+            "type": "number",
+            "example": 10,
+            "description": "Signed change in units (negative to decrease)."
+          },
+          "reason": {
+            "type": "string",
+            "example": "Received supplier delivery",
+            "description": "Required reason for the adjustment."
+          }
+        },
+        "required": [
+          "branchId",
+          "productId",
+          "type",
+          "qtyDelta",
+          "reason"
+        ]
+      },
+      "SetThresholdDto": {
+        "type": "object",
+        "properties": {
+          "lowStockThreshold": {
+            "type": "number",
+            "example": 5,
+            "description": "Alert when stock is at or below this (0 disables)."
+          }
+        },
+        "required": [
+          "lowStockThreshold"
+        ]
+      },
+      "CreateManagedPaymentAccountDto": {
+        "type": "object",
+        "properties": {
+          "businessName": {
+            "type": "string",
+            "example": "Example Business Ltd"
+          },
+          "settlementBankCode": {
+            "type": "string",
+            "example": "058",
+            "description": "Paystack settlement-bank code"
+          },
+          "settlementAccountNumber": {
+            "type": "string",
+            "example": "0123456789"
+          },
+          "ownerEmail": {
+            "type": "string",
+            "example": "owner@example.com"
+          },
+          "ownerName": {
+            "type": "string",
+            "example": "Ada Owner"
+          },
+          "customerFirstName": {
+            "type": "string",
+            "example": "Ada"
+          },
+          "customerLastName": {
+            "type": "string",
+            "example": "Owner"
+          },
+          "ownerPhone": {
+            "type": "string",
+            "example": "+2348012345678"
+          },
+          "preferredBank": {
+            "type": "string",
+            "example": "wema-bank"
+          },
+          "ownerConsent": {
+            "type": "boolean",
+            "description": "Confirms the organization is authorized to submit these details to Paystack.",
+            "example": true
+          }
+        },
+        "required": [
+          "businessName",
+          "settlementBankCode",
+          "settlementAccountNumber",
+          "ownerEmail",
+          "ownerName",
+          "customerFirstName",
+          "customerLastName",
+          "ownerConsent"
+        ]
+      },
+      "CreateManualPaymentDto": {
+        "type": "object",
+        "properties": {
+          "amountMinor": {
+            "type": "string",
+            "description": "Amount received in minor currency units (kobo), as a positive integer string.",
+            "example": "125000"
+          },
+          "branchId": {
+            "type": "string",
+            "description": "Branch that received the cash; defaults to the tenant branch."
+          }
+        },
+        "required": [
+          "amountMinor"
+        ]
+      },
+      "SaleItemInput": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number",
+            "example": 2
+          }
+        },
+        "required": [
+          "productId",
+          "qty"
+        ]
+      },
+      "AllocatePaymentDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaleItemInput"
+            }
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Client-generated; replaying returns the original sale."
+          }
+        },
+        "required": [
+          "items",
+          "idempotencyKey"
+        ]
+      },
+      "SendNotificationDto": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "whatsapp",
+              "email",
+              "simulated"
+            ]
+          },
+          "to": {
+            "type": "string",
+            "description": "Phone number (whatsapp) or email address (email)."
+          },
+          "template": {
+            "type": "string",
+            "example": "payment.received"
+          },
+          "data": {
+            "type": "object",
+            "description": "Template variables, e.g. { amountMinor, currency }."
+          }
+        },
+        "required": [
+          "channel",
+          "to",
+          "template"
+        ]
       }
     }
   }

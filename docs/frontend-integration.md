@@ -46,8 +46,13 @@ product; everything else supports it.
    price/cost, decrements stock atomically.
 4. **Variance allowed:** item total needn't equal the payment exactly
    (discounts/tips) — allow confirm with the difference shown, don't block.
-5. **Pending queue:** `GET /v1/payments?status=pending` — a list for payments not
-   yet itemized (missed prompt).
+5. **Reliable itemization queue:** `GET /v1/payments?status=SUCCEEDED&branchId=&limit=&cursor=`
+   — cursor-paginated confirmed payments that have not been allocated to a sale.
+   This is the recovery path if the dashboard missed the WebSocket prompt.
+6. **Cash receipts:** `POST /v1/payments/manual` with `amountMinor` as a
+   positive integer string and an optional `branchId` for branch-scoped users.
+   The backend creates a `SUCCEEDED` cash payment with a generated reference,
+   then sends it through the same itemization queue and allocation flow.
 
 ## Inventory (live now)
 - Products: `GET/POST /v1/products`, `PATCH /v1/products/:id`.

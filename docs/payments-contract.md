@@ -65,11 +65,27 @@ MATCHED --refund--> REFUNDED
 | ------ | -------------------------------------- | ---------------------------------------------------------- |
 | POST   | `/webhooks/paystack/:integrationToken` | DIRECT receiver (per-account secret)                       |
 | POST   | `/webhooks/paystack/platform`          | MANAGED receiver (platform secret, route by customer_code) |
-| POST   | `/payments/manual`                     | cash/manual → PENDING with generated ref                   |
-| GET    | `/payments?status=pending&branchId=`   | pending list                                               |
+| GET    | `/payments/managed-account`            | Get this organization’s managed account and DVA            |
+| POST   | `/payments/managed-account`            | Provision a test subaccount and linked DVA                 |
+| POST   | `/payments/manual`                     | Record received cash as SUCCEEDED with generated reference |
+| GET    | `/payments?status=SUCCEEDED&branchId=&limit=&cursor=` | Cursor-paginated, unallocated payments for itemization |
 | POST   | `/payments/:id/ignore`                 | → IGNORED                                                  |
 
 Allocation (`POST /payments/:id/match`) lives in **sales**, not payments.
+
+The payments list is restricted to `SUCCEEDED` records with no sale allocation.
+Omit `status` or pass `status=SUCCEEDED`; other statuses are rejected. `branchId`
+is optional for organization-wide members and is always constrained to the
+active tenant. A branch-scoped member can only see their own branch. Pagination
+uses the shared `limit`/opaque `cursor` convention and returns
+`{ items, nextCursor }`.
+
+`POST /payments/manual` accepts `{ "amountMinor": "125000", "branchId": "..." }`.
+The amount is a positive integer string in minor units; `branchId` may be
+omitted for a branch-scoped member. Organization-wide members must specify an
+active branch. The backend generates a unique `cash_...` reference, records the
+receipt as `SUCCEEDED`, and emits `payment.confirmed`, putting cash receipts in
+the same itemization queue and allocation flow as webhook payments.
 
 ## Configure a Paystack test webhook (DIRECT)
 
@@ -150,8 +166,49 @@ test account. The API acknowledges after durable webhook receipt; payment
 creation is asynchronous. Confirm the `WebhookEvent`, `Payment`, `AuditLog`,
 and `OutboxEvent` rows after delivery.
 
-MANAGED/DVA provisioning, platform webhook routing, settlement tracking, and
-ledger behavior are not implemented by this contract yet. The ADR's
+The application now has a tenant-scoped managed-account provisioning endpoint
+and a platform webhook route. Configure `PAYSTACK_PLATFORM_TEST_SECRET_KEY`
+with a test secret before accepting platform deliveries. The webhook processor
+supports a verified, platform-ingested `charge.success` event: it maps
+`data.customer.customer_code` and, when present,
+`data.authorization.receiver_bank_account_number` to the same pending or active DVA, then creates a tenant-scoped
+payment linked to that DVA and managed payment account. Unmapped or inactive
+A missing mapping, mismatched identifiers, and disabled/failed accounts are quarantined.
+A verified `dedicatedaccount.assign.success` event activates the matching
+pending DVA when its customer code and optional account number match the stored
+provisioning record; it does not mark the managed profile settled or infer that
+Paystack has settled funds. A platform webhook ingress route that verifies the
+platform signature and durably stores events without a DIRECT account is still
+required before this processing path can be used with production credentials.
+
+An initial test-key-only provisioning
+proof is available with `npm run paystack:flow-b:proof`. It creates a Paystack
+subaccount with 0% platform commission, creates the owner customer, then asks
+Paystack to create a DVA linked to that subaccount. This script is a sandbox
+proof only: it does not persist the provider records in Invent-IO, and it is
+not safe to treat a successful DVA response as proof of completed settlement.
+Verify the transaction, webhook, and settlement destination in Paystack before
+adding production onboarding or a settlement model. No internal wallet or
+Invent-IO payout initiation is part of Flow B. The script creates provider
+resources and is not idempotent; if a step fails after creating a subaccount or
+customer, retain the printed provider code and inspect the Paystack dashboard
+before retrying.
+
+The provider documentation describes [subaccounts and split payments](https://paystack.com/docs/payments/split-payments/)
+and [subaccount linking for dedicated virtual accounts](https://paystack.com/docs/payments/dedicated-virtual-accounts/#split-payment-on-dedicated-virtual-account).
+
+The initial persistence shape is `ManagedPaymentAccount` (one per organization)
+and `DedicatedVirtualAccount` (one or more per managed profile). The managed
+profile stores the Paystack subaccount code and verified settlement bank/name,
+and an AES-GCM encrypted settlement account number for safe provisioning retries;
+API responses expose only its last four digits. A DVA stores
+the provider customer code and account details needed to show the virtual
+account to the organization. Managed payments use nullable `paymentAccountId`
+plus `managedPaymentAccountId` and `dedicatedVirtualAccountId`; a database
+constraint ensures each payment belongs to exactly one integration flow.
+Settlement confirmation is not inferred from `charge.success`.
+
+The ADR's
 `payment.received` name and this implementation's `payment.confirmed` name
 must be reconciled before building consumers against either event.
 

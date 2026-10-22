@@ -13,80 +13,81 @@ datasource db {
 }
 
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  currency  String   @default("NGN")
-  timezone  String   @default("Africa/Lagos")
-  createdAt DateTime @default(now())
-  branches  Branch[]
-  memberships Membership[]
-  products  Product[]
-  paymentAccounts PaymentAccount[]
-  payments  Payment[]
-  sales     Sale[]
+  id                    String                 @id @default(uuid())
+  name                  String
+  currency              String                 @default("NGN")
+  timezone              String                 @default("Africa/Lagos")
+  createdAt             DateTime               @default(now())
+  branches              Branch[]
+  memberships           Membership[]
+  products              Product[]
+  paymentAccounts       PaymentAccount[]
+  payments              Payment[]
+  sales                 Sale[]
+  managedPaymentAccount ManagedPaymentAccount?
 }
 
 model Branch {
-  id             String   @id @default(uuid())
+  id             String          @id @default(uuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  organization   Organization    @relation(fields: [organizationId], references: [id])
   name           String
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now())
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
   branchStock    BranchStock[]
   stockMovements StockMovement[]
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  phone        String?
-  passwordHash String
-  createdAt    DateTime @default(now())
-  memberships  Membership[]
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  phone         String?
+  passwordHash  String
+  createdAt     DateTime       @default(now())
+  memberships   Membership[]
   refreshTokens RefreshToken[]
 }
 
 model Membership {
-  id             String   @id @default(uuid())
+  id             String       @id @default(uuid())
   userId         String
-  user           User     @relation(fields: [userId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   branchId       String?
   roleId         String
-  role           Role     @relation(fields: [roleId], references: [id])
+  role           Role         @relation(fields: [roleId], references: [id])
 }
 
 model Role {
-  id          String   @id @default(uuid())
-  name        String   @unique
+  id          String       @id @default(uuid())
+  name        String       @unique
   permissions String[]
   memberships Membership[]
 }
 
 model Product {
-  id             String   @id @default(uuid())
+  id             String          @id @default(uuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  organization   Organization    @relation(fields: [organizationId], references: [id])
   name           String
   sku            String?
   barcode        String?
-  unit           String?  // e.g. "piece", "kg", "pack"
-  price          Int      // integer minor units (org currency). Never a float.
-  cost           Int      // integer minor units. Never a float.
-  active         Boolean  @default(true)
-  version        Int      @default(0) // incremented on every edit; used by sync conflict handling
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  unit           String? // e.g. "piece", "kg", "pack"
+  price          Int // integer minor units (org currency). Never a float.
+  cost           Int // integer minor units. Never a float.
+  active         Boolean         @default(true)
+  version        Int             @default(0) // incremented on every edit; used by sync conflict handling
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  branchStock    BranchStock[]
+  stockMovements StockMovement[]
+  saleItems      SaleItem[]
 
   @@unique([organizationId, sku])
   @@unique([organizationId, barcode])
   @@index([organizationId, active])
-  branchStock    BranchStock[]
-  stockMovements StockMovement[]
-  saleItems      SaleItem[]
 }
 
 enum StockMovementType {
@@ -122,10 +123,10 @@ model StockMovement {
   productId String
   product   Product           @relation(fields: [productId], references: [id])
   type      StockMovementType
-  qtyDelta  Int               // signed: negative for SALE, positive for RESTOCK
-  refType   String?           // originating entity, e.g. "sale", "adjustment"
+  qtyDelta  Int // signed: negative for SALE, positive for RESTOCK
+  refType   String? // originating entity, e.g. "sale", "adjustment"
   refId     String?
-  reason    String?           // required for manual adjustments
+  reason    String? // required for manual adjustments
   createdBy String?
   createdAt DateTime          @default(now())
 
@@ -138,8 +139,8 @@ model AuditLog {
   id             String   @id @default(uuid())
   organizationId String
   actorId        String?
-  action         String   // e.g. "product.price_changed"
-  entity         String   // e.g. "Product"
+  action         String // e.g. "product.price_changed"
+  entity         String // e.g. "Product"
   entityId       String
   before         Json?
   after          Json?
@@ -149,15 +150,15 @@ model AuditLog {
 }
 
 model RefreshToken {
-  id        String    @id @default(uuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  familyId  String
-  tokenHash String    @unique
-  expiresAt DateTime
-  createdAt DateTime  @default(now())
-  usedAt    DateTime?
-  revokedAt DateTime?
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  familyId   String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  usedAt     DateTime?
+  revokedAt  DateTime?
   replacedBy String?
 }
 
@@ -166,12 +167,12 @@ model RefreshToken {
 // processed. Guarantees at-least-once delivery without distributed transactions.
 model OutboxEvent {
   id          String    @id @default(uuid())
-  type        String    // e.g. "payment.received", "sale.created", "stock.low"
+  type        String // e.g. "payment.received", "sale.created", "stock.low"
   payload     Json
   createdAt   DateTime  @default(now())
   processedAt DateTime?
 
-  organizationId String?   // optional: for multi-tenant filtering
+  organizationId String? // optional: for multi-tenant filtering
   attempts       Int       @default(0)
   lastError      String?
   availableAt    DateTime  @default(now())
@@ -189,6 +190,20 @@ enum PaymentProvider {
 enum PaymentAccountStatus {
   ACTIVE
   DISABLED
+}
+
+enum ManagedPaymentAccountStatus {
+  PENDING
+  ACTIVE
+  DISABLED
+  FAILED
+}
+
+enum DedicatedVirtualAccountStatus {
+  PENDING
+  ACTIVE
+  DISABLED
+  FAILED
 }
 
 enum WebhookEventStatus {
@@ -213,40 +228,87 @@ model PaymentAccount {
   organization         Organization         @relation(fields: [organizationId], references: [id])
   branchId             String?
   provider             PaymentProvider
-  providerAccountId    String?              // optional: may not be known until first real event
+  providerAccountId    String? // optional: may not be known until first real event
   status               PaymentAccountStatus @default(ACTIVE)
   integrationTokenHash String               @unique
   secretCiphertext     String
   keyVersion           Int                  @default(1)
 
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  webhookEvents        WebhookEvent[]
-  payments             Payment[]
+  webhookEvents WebhookEvent[]
+  payments      Payment[]
 
   // One provider account can belong to only one tenant (NULLs are exempt).
   @@unique([provider, providerAccountId])
   @@index([organizationId, provider, status])
 }
 
+model ManagedPaymentAccount {
+  id                          String                      @id @default(uuid())
+  organizationId              String                      @unique
+  organization                Organization                @relation(fields: [organizationId], references: [id])
+  provider                    PaymentProvider
+  status                      ManagedPaymentAccountStatus @default(PENDING)
+  providerSubaccountCode      String?                     @unique
+  providerCustomerCode        String?                     @unique
+  settlementBankCode          String?
+  settlementBankName          String?
+  settlementAccountName       String?
+  settlementAccountLast4      String?
+  settlementAccountCiphertext String?
+  percentageCharge            Decimal                     @default(0) @db.Decimal(5, 2)
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime                    @updatedAt
+
+  virtualAccounts DedicatedVirtualAccount[]
+  payments        Payment[]
+
+  @@index([provider, status])
+}
+
+model DedicatedVirtualAccount {
+  id                      String                        @id @default(uuid())
+  managedPaymentAccountId String
+  managedPaymentAccount   ManagedPaymentAccount         @relation(fields: [managedPaymentAccountId], references: [id])
+  provider                PaymentProvider
+  providerAccountId       String?                       @unique
+  providerCustomerCode    String                        @unique
+  accountName             String
+  accountNumber           String                        @unique
+  bankName                String
+  bankSlug                String?
+  currency                String                        @default("NGN")
+  status                  DedicatedVirtualAccountStatus @default(PENDING)
+  assignedAt              DateTime?
+  disabledAt              DateTime?
+  createdAt               DateTime                      @default(now())
+  updatedAt               DateTime                      @updatedAt
+
+  payments Payment[]
+
+  @@index([managedPaymentAccountId, status])
+}
+
 model WebhookEvent {
-  id               String             @id @default(uuid())
-  paymentAccountId String?
-  paymentAccount   PaymentAccount?    @relation(fields: [paymentAccountId], references: [id])
-  eventType        String             // raw provider string, e.g. "charge.success"
-  payload          Json?              // parsed body, only for valid JSON + valid signature
-  rawBody          String             // exact bytes received (truncated if oversized + unauthenticated)
-  signatureValid   Boolean            @default(false)
-  dedupeKey        String
-  status           WebhookEventStatus @default(RECEIVED)
-  attempts         Int                @default(0)
-  lastError        String?
-  correlationId    String
-  receivedAt       DateTime           @default(now())
-  processedAt      DateTime?
-  claimedAt        DateTime?
-  availableAt      DateTime           @default(now())
+  id                String             @id @default(uuid())
+  paymentAccountId  String?
+  paymentAccount    PaymentAccount?    @relation(fields: [paymentAccountId], references: [id])
+  eventType         String // raw provider string, e.g. "charge.success"
+  payload           Json? // parsed body, only for valid JSON + valid signature
+  rawBody           String // exact bytes received (truncated if oversized + unauthenticated)
+  signatureValid    Boolean            @default(false)
+  dedupeKey         String
+  platformDedupeKey String?            @unique
+  status            WebhookEventStatus @default(RECEIVED)
+  attempts          Int                @default(0)
+  lastError         String?
+  correlationId     String
+  receivedAt        DateTime           @default(now())
+  processedAt       DateTime?
+  claimedAt         DateTime?
+  availableAt       DateTime           @default(now())
 
   // Idempotency layer 1. Quarantined rows (null account) are not deduped: acceptable.
   @@unique([paymentAccountId, dedupeKey])
@@ -256,24 +318,32 @@ model WebhookEvent {
 }
 
 model Payment {
-  id                String         @id @default(uuid())
-  paymentAccountId  String
-  paymentAccount    PaymentAccount @relation(fields: [paymentAccountId], references: [id])
-  organizationId    String
-  organization      Organization   @relation(fields: [organizationId], references: [id])
-  branchId          String?        // copied from the account at write time
-  providerReference String
-  providerPaymentId String?        // informational only, NOT part of any unique
-  amountMinor       BigInt         // kobo; convert to string/number at the API boundary
-  currency          String
-  method            String
-  status            PaymentStatus  @default(PENDING)
-  occurredAt        DateTime
-  receivedAt        DateTime       @default(now())
+  id                        String                   @id @default(uuid())
+  paymentAccountId          String?
+  paymentAccount            PaymentAccount?          @relation(fields: [paymentAccountId], references: [id])
+  managedPaymentAccountId   String?
+  managedPaymentAccount     ManagedPaymentAccount?   @relation(fields: [managedPaymentAccountId], references: [id])
+  dedicatedVirtualAccountId String?
+  dedicatedVirtualAccount   DedicatedVirtualAccount? @relation(fields: [dedicatedVirtualAccountId], references: [id])
+  organizationId            String
+  organization              Organization             @relation(fields: [organizationId], references: [id])
+  branchId                  String? // copied from the account at write time
+  providerReference         String
+  providerPaymentId         String? // informational only, NOT part of any unique
+  amountMinor               BigInt // kobo; convert to string/number at the API boundary
+  currency                  String
+  method                    String
+  status                    PaymentStatus            @default(PENDING)
+  occurredAt                DateTime
+  receivedAt                DateTime                 @default(now())
+  allocation                SaleAllocation?
 
-  // Idempotency layer 2. Must not include a nullable column.
+  // Postgres permits multiple NULL values, so separate keys cover each flow.
   @@unique([paymentAccountId, providerReference])
+  @@unique([managedPaymentAccountId, providerReference])
   @@index([organizationId, status, occurredAt])
+  @@index([organizationId, branchId, status, occurredAt])
+  @@index([dedicatedVirtualAccountId, occurredAt])
 }
 
 // A confirmed payment turned into a recorded sale. Allocation is tracked here, 
@@ -283,11 +353,11 @@ model Sale {
   organizationId String
   organization   Organization     @relation(fields: [organizationId], references: [id])
   branchId       String?
-  total          BigInt           // sum(unitPrice * qty), integer minor units
-  margin         BigInt           // sum((unitPrice - unitCost) * qty)
+  total          BigInt // sum(unitPrice * qty), integer minor units
+  margin         BigInt // sum((unitPrice - unitCost) * qty)
   variance       BigInt           @default(0) // paymentAmount - total (signed); 0 when exact
   flagged        Boolean          @default(false) // variance beyond SALE_VARIANCE_TOLERANCE
-  idempotencyKey String?          // client-supplied; replay returns the same sale
+  idempotencyKey String? // client-supplied; replay returns the same sale
   createdBy      String?
   createdAt      DateTime         @default(now())
   items          SaleItem[]
@@ -298,14 +368,14 @@ model Sale {
 }
 
 model SaleItem {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   saleId    String
-  sale      Sale     @relation(fields: [saleId], references: [id])
+  sale      Sale    @relation(fields: [saleId], references: [id])
   productId String
-  product   Product  @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
   qty       Int
-  unitPrice Int      // snapshot at sale time; never recomputed from current price
-  unitCost  Int      // snapshot at sale time
+  unitPrice Int // snapshot at sale time; never recomputed from current price
+  unitCost  Int // snapshot at sale time
 
   @@index([saleId])
 }
@@ -313,10 +383,11 @@ model SaleItem {
 // One sale per payment: the unique paymentId is the atomic double-tap guard.
 // No relation to Payment (owned by payments); the service validates existence.
 model SaleAllocation {
-  id        String @id @default(uuid())
+  id        String  @id @default(uuid())
   saleId    String
-  sale      Sale   @relation(fields: [saleId], references: [id])
-  paymentId String @unique
+  sale      Sale    @relation(fields: [saleId], references: [id])
+  paymentId String  @unique
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
   amount    BigInt
 
   @@index([saleId])
@@ -327,16 +398,15 @@ model NotificationLog {
   id                String   @id @default(uuid())
   organizationId    String
   userId            String?
-  eventId           String?  // source outbox event id, for dedup on redelivery
-  channel           String   // "whatsapp" | "email" | "simulated"
-  template          String   // named template, e.g. "payment.received"
-  recipient         String   // phone or email (redact PII in logs, not here)
-  status            String   // "SENT" | "FAILED"
+  eventId           String? // source outbox event id, for dedup on redelivery
+  channel           String // "whatsapp" | "email" | "simulated"
+  template          String // named template, e.g. "payment.received"
+  recipient         String // phone or email (redact PII in logs, not here)
+  status            String // "SENT" | "FAILED"
   providerMessageId String?
   error             String?
   createdAt         DateTime @default(now())
 
   @@index([organizationId, createdAt])
   @@index([eventId])
-}
 }

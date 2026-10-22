@@ -15,6 +15,26 @@ import {
  export class PaystackWebhookController {
     constructor(private readonly ingest: WebhookIngestService) {}
 
+    @Post('platform')
+    @HttpCode(200)
+    async receivePlatform(
+        @Headers('x-paystack-signature') signature: string | undefined,
+        @Headers('x-request-id') requestId: string | undefined,
+        @Req() req: RawBodyRequest<Request>,
+    ) {
+        if (!req.rawBody) {
+            throw new BadRequestException('Raw body unavailable');
+        }
+
+        await this.ingest.ingestPlatformPaystack({
+            rawBody: req.rawBody,
+            signature,
+            correlationId: requestId,
+        });
+
+        return { received: true };
+    }
+
     @Post(':integrationToken')
     @HttpCode(200)
     async receive(

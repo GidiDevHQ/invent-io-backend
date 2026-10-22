@@ -1,4 +1,4 @@
-# ADR 001: Payments architecture — flows, tenant mapping, transport, money, managed wallet
+# ADR 001: Payments architecture — flows, tenant mapping, transport, money, managed settlement
 
 Status: Proposed (needs ratification by both engineers before PAY-01 continues)
 
@@ -17,8 +17,10 @@ React Native mobile app the spec assumed); the backend remains client-agnostic.
   Real funds settle to the merchant's bank; the platform never touches them. We
   log a **tracking** payment (amount recorded for the sale, no platform credit).
 - **MANAGED (SME):** merchant uses the **platform** Paystack account with a
-  Dedicated Virtual Account (DVA). Transfers land in the platform balance and we
-  credit the merchant's internal wallet. See decision 5.
+  Dedicated Virtual Account (DVA) linked to the merchant's Paystack subaccount.
+  Paystack handles transaction splitting and settlement. Invent-IO records
+  payment and provider-reported settlement state; it does not maintain a
+  spendable wallet or initiate payouts.
 
 `PaymentAccount.integrationType` is `DIRECT | MANAGED`.
 
@@ -50,15 +52,19 @@ React Native mobile app the spec assumed); the backend remains client-agnostic.
   event — the gateway is a delivery adapter). Web Push for closed tabs is future
   work.
 
-### 5. Managed wallet + settlement — SIMULATED for the capstone
-- The internal wallet and settlement are implemented as an **append-only ledger**
-  against **Paystack test mode** only. **No real third-party funds are ever
-  custodied.** Balance = `SUM(ledger.amount)`; "withdraw" appends a negative
-  `PENDING` `SETTLEMENT` row (prevents double-spend); an admin marks it
-  `SUCCESSFUL` after a (sandboxed) payout. Labeled **"simulated"** in the demo,
-  exactly as WhatsApp is.
-- **Real fund custody is explicitly out of scope** (pooled FBO account, payout
-  rails, KYC, reconciliation, licensing). Documented as future work.
+### 5. Managed settlement — provider-managed
+- There is **no Invent-IO wallet or payout initiation** in the agreed Flow B.
+  During onboarding, Invent-IO provisions a Paystack subaccount from the
+  merchant's authorized settlement-bank details and creates a DVA linked to
+  that subaccount. Paystack is responsible for splitting and settlement.
+- Invent-IO records provider payment and settlement/reconciliation evidence;
+  provider-confirmed settlement status must not be inferred from `charge.success`.
+- The DVA/subaccount linkage and settlement destination must be demonstrated in
+  Paystack test mode before enabling this flow for production accounts.
+- Provider account ownership, compliance, disputes, reversals, and any
+  contractual liability remain subject to Paystack's terms and applicable law;
+  the platform must not claim these responsibilities disappear merely because
+  it does not operate a wallet.
 
 ## Options considered (rejected)
 - Float/`DECIMAL` money — violates the money invariant.
@@ -70,9 +76,9 @@ React Native mobile app the spec assumed); the backend remains client-agnostic.
 
 ## Consequences
 - Easier: one money type end to end; crash-safe delivery via the outbox; sales
-  can rely on a fixed `Payment` contract; the escrow is demoable without real risk.
+  can rely on a fixed `Payment` contract; Paystack performs the settlement split.
 - Harder / new surface: a WebSocket gateway; a `PaymentAccount.integrationType`
-  branch in ingestion; a wallet ledger + settlement workflow (simulated); the
+  branch in ingestion; managed account provisioning and settlement reconciliation; the
   `Money` type change ripples through `common` and its callers.
 - Revisit later: the sync module's offline-first emphasis (mobile-shaped), and
   real custody + Web Push as future work.
