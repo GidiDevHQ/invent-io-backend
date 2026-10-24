@@ -46,6 +46,13 @@ const templates: Record<string, (d: TemplateData) => RenderedMessage> = {
             `Confirm your email address to secure your account: ${d.verifyUrl ?? ''}\n` +
             `This link expires in 24 hours.`,
     }),
+    'password.reset': (d) => ({
+        subject: 'Reset your password',
+        body:
+            `We received a request to reset your Invent-IO password. ` +
+            `Set a new one here: ${d.resetUrl ?? ''}\n` +
+            `This link expires in 1 hour. If you didn't ask for this, you can ignore this email.`,
+    }),
     'membership.invite': (d) => ({
         subject: `You've been invited to ${d.orgName ?? 'a team'}`,
         body: `You've been invited to ${d.orgName ?? 'a team'} as ${d.role ?? 'a member'}. Accept: ${d.inviteUrl ?? ''}`.trim(),
