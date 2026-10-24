@@ -6,9 +6,11 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
+import { RequestOtpDto, VerifyOtpDto } from './dto/otp.dto';
 import { RefreshTokenService } from './refresh-token.service';
 import { EmailVerificationService } from './email-verification.service';
 import { PasswordResetService } from './password-reset.service';
+import { OtpService } from './otp.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guards';
 
 @Controller('auth')
@@ -18,6 +20,7 @@ export  class AuthController {
         private refreshTokenService: RefreshTokenService,
         private emailVerification: EmailVerificationService,
         private passwordReset: PasswordResetService,
+        private otp: OtpService,
     ) {}
 
     @Post('register')
@@ -73,5 +76,19 @@ export  class AuthController {
     @ApiOperation({ summary: 'Set a new password from a reset-link token; revokes all sessions' })
     resetPassword(@Body() dto: ResetPasswordDto) {
         return this.passwordReset.reset(dto.token, dto.password);
+    }
+
+    @Post('otp/request')
+    @HttpCode(200)
+    @ApiOperation({ summary: 'Email/text a 6-digit login code (always succeeds; no account enumeration)' })
+    requestOtp(@Body() dto: RequestOtpDto) {
+        return this.otp.request(dto.identifier);
+    }
+
+    @Post('otp/verify')
+    @HttpCode(200)
+    @ApiOperation({ summary: 'Exchange a valid login code for a session' })
+    verifyOtp(@Body() dto: VerifyOtpDto) {
+        return this.otp.verify(dto.identifier, dto.code);
     }
 }
