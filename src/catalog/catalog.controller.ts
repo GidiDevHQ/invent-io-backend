@@ -17,21 +17,33 @@ import { RequirePermission } from '../tenancy/require-permission.decorator';
 import { Tenant } from '../tenancy/tenant.decorator';
 import type { TenantContext } from '../tenancy/tenant.decorator';
 import { CatalogService } from './catalog.service';
+import { CatalogImportService } from './catalog-import.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ImportProductsDto } from './dto/import-products.dto';
 
 @ApiTags('catalog')
 @ApiBearerAuth()
 @Controller('products')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
 export class CatalogController {
-    constructor(private readonly catalog: CatalogService) {}
+    constructor(
+        private readonly catalog: CatalogService,
+        private readonly catalogImport: CatalogImportService,
+    ) {}
 
     @Post()
     @RequirePermission('catalog.write')
     @ApiOperation({ summary: 'Create a product' })
     create(@Tenant() tenant: TenantContext, @Body() dto: CreateProductDto) {
         return this.catalog.create(tenant, dto);
+    }
+
+    @Post('import')
+    @RequirePermission('catalog.write')
+    @ApiOperation({ summary: 'Bulk-import products from CSV (partial success; bad rows reported)' })
+    import(@Tenant() tenant: TenantContext, @Body() dto: ImportProductsDto) {
+        return this.catalogImport.importCsv(tenant, dto.csv);
     }
 
     @Get()
