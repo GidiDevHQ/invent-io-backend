@@ -25,6 +25,7 @@ model Organization {
   payments              Payment[]
   sales                 Sale[]
   managedPaymentAccount ManagedPaymentAccount?
+  payoutAccount         PayoutAccount?
 }
 
 model Branch {
@@ -210,6 +211,25 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+// A merchant-declared bank account that settlements/withdrawals are paid out to.
+// One per organization. The full account number is encrypted at rest (AES-256-GCM,
+// like payment secrets); only the last four digits are kept in the clear for
+// display. This records where money should go — it does not move money itself.
+model PayoutAccount {
+  id                      String       @id @default(uuid())
+  organizationId          String       @unique
+  organization            Organization @relation(fields: [organizationId], references: [id])
+  bankCode                String
+  bankName                String
+  accountName             String
+  accountNumberCiphertext String
+  accountNumberLast4      String
+  currency                String       @default("NGN")
+  createdBy               String?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
 }
 
 // Transactional outbox. A domain event is written here in the SAME transaction
