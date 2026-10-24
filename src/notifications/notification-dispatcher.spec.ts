@@ -3,6 +3,7 @@ import { NotificationDispatcher } from './notification-dispatcher';
 function makeDispatcher(
     members: { userId: string; email?: string; phone?: string }[],
     alreadyDispatched = false,
+    subscriptions: { endpoint: string; subscription: unknown }[] = [],
 ) {
     const prisma = {
         membership: {
@@ -15,8 +16,16 @@ function makeDispatcher(
         },
     };
     const notifications = { send: jest.fn().mockResolvedValue({ id: 'log', status: 'SENT' }) };
-    const dispatcher = new NotificationDispatcher(prisma as never, notifications as never);
-    return { dispatcher, notifications };
+    const pushSubscriptions = {
+        forOrganization: jest.fn().mockResolvedValue(subscriptions),
+        pruneByEndpoint: jest.fn().mockResolvedValue(undefined),
+    };
+    const dispatcher = new NotificationDispatcher(
+        prisma as never,
+        notifications as never,
+        pushSubscriptions as never,
+    );
+    return { dispatcher, notifications, pushSubscriptions };
 }
 
 describe('NotificationDispatcher', () => {
@@ -62,6 +71,30 @@ describe('NotificationDispatcher', () => {
         const { dispatcher, notifications } = makeDispatcher([{ userId: 'u1', email: 'a@b.com' }]);
         await dispatcher.handle({ type: 'something.else', payload: { organizationId: 'org-1' } });
         expect(notifications.send).not.toHaveBeenCalled();
+    });
+
+    it('pushes to every registered subscription and prunes gone ones', async () => {
+        const subs = [
+            { endpoint: 'https://push/a', subscription: { endpoint: 'https://push/a', keys: { p256dh: 'x', auth: 'y' } } },
+            { endpoint: 'https://push/b', subscription: { endpoint: 'https://push/b', keys: { p256dh: 'x', auth: 'y' } } },
+        ];
+        const { dispatcher, notifications, pushSubscriptions } = makeDispatcher(
+            [{ userId: 'u1', email: 'a@b.com' }],
+            false,
+            subs,
+        );
+        // First push succeeds; second comes back gone and must be pruned.
+        notifications.send
+            .mockResolvedValueOnce({ id: 'email-log', status: 'SENT' }) // the email send
+            .mockResolvedValueOnce({ id: 'push-a', status: 'SENT' })
+            .mockResolvedValueOnce({ id: 'push-b', status: 'FAILED', error: 'SUBSCRIPTION_GONE:https://push/b' });
+
+        await dispatcher.handle({ type: 'stock.low', payload: { organizationId: 'org-1', productId: 'p1', qty: 1 } });
+
+        const webpushCalls = notifications.send.mock.calls.filter((c) => c[0].channel === 'webpush');
+        expect(webpushCalls).toHaveLength(2);
+        expect(pushSubscriptions.pruneByEndpoint).toHaveBeenCalledWith('https://push/b');
+        expect(pushSubscriptions.pruneByEndpoint).not.toHaveBeenCalledWith('https://push/a');
     });
 
     it('skips an event already dispatched (dedup on redelivery)', async () => {

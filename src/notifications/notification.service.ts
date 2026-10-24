@@ -4,6 +4,7 @@ import type { ChannelName, MessageChannel } from './channels/message-channel';
 import { SimulatedChannel } from './channels/simulated.channel';
 import { WhatsAppChannel } from './channels/whatsapp.channel';
 import { EmailChannel } from './channels/email.channel';
+import { WebPushChannel } from './channels/webpush.channel';
 import { renderTemplate, type TemplateData } from './templates';
 
 export interface SendNotification {
@@ -32,8 +33,9 @@ export class NotificationService {
         simulated: SimulatedChannel,
         whatsapp: WhatsAppChannel,
         email: EmailChannel,
+        webpush: WebPushChannel,
     ) {
-        this.channels = { simulated, whatsapp, email };
+        this.channels = { simulated, whatsapp, email, webpush };
     }
 
     /**

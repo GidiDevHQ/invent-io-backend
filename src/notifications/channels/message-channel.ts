@@ -1,7 +1,10 @@
-export type ChannelName = 'whatsapp' | 'email' | 'simulated';
+export type ChannelName = 'whatsapp' | 'email' | 'simulated' | 'webpush';
 
 export interface OutboundMessage {
-    /** Phone number (whatsapp) or email address (email). */
+    /**
+     * Phone number (whatsapp), email address (email), or a JSON-encoded Web Push
+     * subscription (webpush — see PushSubscriptionJSON).
+     */
     to: string;
     /** Email subject; ignored by phone-based channels. */
     subject?: string;
