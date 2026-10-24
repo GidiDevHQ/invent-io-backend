@@ -44,10 +44,12 @@ model User {
   email         String         @unique
   phone         String?
   passwordHash  String
+  emailVerified Boolean        @default(false)
   createdAt     DateTime       @default(now())
   memberships   Membership[]
   refreshTokens RefreshToken[]
   pushSubscriptions PushSubscription[]
+  emailVerificationTokens EmailVerificationToken[]
 }
 
 // A Web Push endpoint for one browser/device of one user. The push service URL
@@ -178,6 +180,21 @@ model RefreshToken {
   usedAt     DateTime?
   revokedAt  DateTime?
   replacedBy String?
+}
+
+// Single-use, short-lived token for confirming a user's email address. Only the
+// SHA-256 hash is stored (never the raw token), the same way refresh tokens are
+// kept; the raw token lives only in the verification link we email.
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // Transactional outbox. A domain event is written here in the SAME transaction
