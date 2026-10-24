@@ -57,6 +57,18 @@ export class PushSubscriptionService {
         }));
     }
 
+    /** Subscriptions for specific users, as web-push-ready JSON objects. */
+    async forUsers(
+        userIds: string[],
+    ): Promise<{ endpoint: string; subscription: PushSubscriptionJSON }[]> {
+        if (userIds.length === 0) return [];
+        const rows = await this.prisma.pushSubscription.findMany({ where: { userId: { in: userIds } } });
+        return rows.map((r) => ({
+            endpoint: r.endpoint,
+            subscription: { endpoint: r.endpoint, keys: { p256dh: r.p256dh, auth: r.auth } },
+        }));
+    }
+
     /** Drop a subscription the push service reported as gone (404/410). */
     async pruneByEndpoint(endpoint: string): Promise<void> {
         await this.prisma.pushSubscription.deleteMany({ where: { endpoint } });
