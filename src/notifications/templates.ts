@@ -39,6 +39,13 @@ const templates: Record<string, (d: TemplateData) => RenderedMessage> = {
             `Low/out of stock: ${Array.isArray(d.lowStock) ? d.lowStock.join(', ') : 'none'}.`,
     }),
     // 3. Account & auth
+    welcome: (d) => ({
+        subject: `Welcome to Invent-IO${d.businessName ? ', ' + d.businessName : ''}`,
+        body:
+            `Hi ${d.name ?? 'there'}, your Invent-IO account is ready. ` +
+            `Connect a payment account and add your products, and every payment that ` +
+            `lands turns into a confirmed sale in seconds. We're glad you're here.`,
+    }),
     'verify-email': (d) => ({
         subject: 'Confirm your email',
         body:

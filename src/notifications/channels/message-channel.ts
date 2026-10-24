@@ -9,6 +9,8 @@ export interface OutboundMessage {
     /** Email subject; ignored by phone-based channels. */
     subject?: string;
     body: string;
+    /** Sender identity for channels that have one (email). Ignored elsewhere. */
+    from?: { email: string; name?: string };
 }
 
 export interface SendResult {

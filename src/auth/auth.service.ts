@@ -6,6 +6,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenService } from './refresh-token.service';
 import { EmailVerificationService } from './email-verification.service';
+import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +17,7 @@ export class AuthService {
         private jwt: JwtService,
         private refreshTokens: RefreshTokenService,
         private emailVerification: EmailVerificationService,
+        private notifications: NotificationService,
     ) {}
 
     async register(dto: RegisterDto) {
@@ -56,16 +58,24 @@ export class AuthService {
             return { org, branch, user, membership }
         });
 
-        // Send the welcome/verification email. Never let a delivery hiccup fail
-        // the registration — the user is created; they can resend if it's missed.
+        // Welcome (from hello@) + verification (from noreply@) emails. Never let a
+        // delivery hiccup fail registration — the user is created either way.
         try {
+            await this.notifications.send({
+                organizationId: result.org.id,
+                userId: result.user.id,
+                channel: 'email',
+                to: result.user.email,
+                template: 'welcome',
+                data: { name: result.user.name, businessName: result.org.name },
+            });
             await this.emailVerification.issueAndSend({
                 id: result.user.id,
                 email: result.user.email,
                 name: result.user.name,
             });
         } catch (e) {
-            this.log.error(`verification email failed for ${result.user.id}: ${(e as Error).message}`);
+            this.log.error(`onboarding email failed for ${result.user.id}: ${(e as Error).message}`);
         }
 
         const accessToken = await this.signAccessToken(result.user.id);
