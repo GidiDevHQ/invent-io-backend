@@ -49,6 +49,11 @@ export class EmailChannel implements MessageChannel {
 
     async send(message: OutboundMessage): Promise<SendResult> {
         const { apiKey, fromEmail, fromName } = this.config();
+        // Per-email sender (noreply@/hello@/billing@…) when provided; else the default.
+        const sender = {
+            email: message.from?.email ?? fromEmail,
+            name: message.from?.name ?? fromName,
+        };
         const res = await fetch('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
             headers: {
@@ -57,7 +62,7 @@ export class EmailChannel implements MessageChannel {
                 Accept: 'application/json',
             },
             body: JSON.stringify({
-                sender: { email: fromEmail, name: fromName },
+                sender,
                 to: [{ email: message.to }],
                 subject: message.subject ?? 'Invent-IO notification',
                 htmlContent: htmlShell(message.body),

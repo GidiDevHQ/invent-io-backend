@@ -6,9 +6,16 @@ function makeService(channelSend: jest.Mock) {
     const prisma = { notificationLog: { create } };
     const simulated = { name: 'simulated', send: channelSend };
     const whatsapp = { name: 'whatsapp', send: jest.fn() };
-    const email = { name: 'email', send: jest.fn() };
-    const service = new NotificationService(prisma as never, simulated as never, whatsapp as never, email as never);
-    return { service, create };
+    const email = { name: 'email', send: jest.fn().mockResolvedValue({ providerMessageId: 'em-1' }) };
+    const webpush = { name: 'webpush', send: jest.fn() };
+    const service = new NotificationService(
+        prisma as never,
+        simulated as never,
+        whatsapp as never,
+        email as never,
+        webpush as never,
+    );
+    return { service, create, email };
 }
 
 describe('NotificationService', () => {
@@ -52,5 +59,38 @@ describe('NotificationService', () => {
     it('rejects an unknown template', async () => {
         const { service } = makeService(jest.fn());
         await expect(service.send({ ...base, template: 'nope' })).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('attaches the sender derived from the email type', async () => {
+        const { service, email } = makeService(jest.fn());
+        process.env.EMAIL_FROM_DOMAIN = 'invent-io.test';
+
+        await service.send({ ...base, channel: 'email', to: 'a@b.com', template: 'welcome' });
+        expect(email.send).toHaveBeenCalledWith(
+            expect.objectContaining({ from: expect.objectContaining({ email: 'hello@invent-io.test' }) }),
+        );
+
+        await service.send({
+            ...base,
+            channel: 'email',
+            to: 'a@b.com',
+            template: 'settlement.completed',
+            data: { amountMinor: '1000', currency: 'NGN' },
+        });
+        expect(email.send).toHaveBeenLastCalledWith(
+            expect.objectContaining({ from: expect.objectContaining({ email: 'billing@invent-io.test' }) }),
+        );
+        delete process.env.EMAIL_FROM_DOMAIN;
+    });
+
+    it('honours an explicit sender override', async () => {
+        const { service, email } = makeService(jest.fn());
+        process.env.EMAIL_FROM_DOMAIN = 'invent-io.test';
+
+        await service.send({ ...base, channel: 'email', to: 'a@b.com', template: 'welcome', from: 'support' });
+        expect(email.send).toHaveBeenCalledWith(
+            expect.objectContaining({ from: expect.objectContaining({ email: 'support@invent-io.test' }) }),
+        );
+        delete process.env.EMAIL_FROM_DOMAIN;
     });
 });
