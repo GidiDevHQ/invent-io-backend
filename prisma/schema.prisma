@@ -362,9 +362,41 @@ model Sale {
   createdAt      DateTime         @default(now())
   items          SaleItem[]
   allocations    SaleAllocation[]
+  refunds        Refund[]
 
   @@unique([organizationId, idempotencyKey])
   @@index([organizationId, createdAt])
+}
+
+// A full or partial reversal of a sale: restores stock (RETURN movements) and
+// reverses revenue/margin. The money-back at the provider is tracked, not run.
+model Refund {
+  id             String       @id @default(uuid())
+  saleId         String
+  sale           Sale         @relation(fields: [saleId], references: [id])
+  organizationId String
+  branchId       String?
+  amountMinor    BigInt // total refunded, integer minor units
+  marginReversed BigInt // margin reversed
+  reason         String?
+  createdBy      String?
+  createdAt      DateTime     @default(now())
+  items          RefundItem[]
+
+  @@index([organizationId, createdAt])
+  @@index([saleId])
+}
+
+model RefundItem {
+  id        String @id @default(uuid())
+  refundId  String
+  refund    Refund @relation(fields: [refundId], references: [id])
+  productId String
+  qty       Int
+  unitPrice Int // snapshot carried from the sale item
+  unitCost  Int
+
+  @@index([refundId])
 }
 
 model SaleItem {
