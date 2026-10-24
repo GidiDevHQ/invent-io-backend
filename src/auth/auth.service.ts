@@ -1,17 +1,21 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ConflictException, Logger, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenService } from './refresh-token.service';
+import { EmailVerificationService } from './email-verification.service';
 
 @Injectable()
 export class AuthService {
+    private readonly log = new Logger(AuthService.name);
+
     constructor(
         private prisma: PrismaService,
         private jwt: JwtService,
-        private refreshTokens: RefreshTokenService
+        private refreshTokens: RefreshTokenService,
+        private emailVerification: EmailVerificationService,
     ) {}
 
     async register(dto: RegisterDto) {
@@ -52,12 +56,24 @@ export class AuthService {
             return { org, branch, user, membership }
         });
 
+        // Send the welcome/verification email. Never let a delivery hiccup fail
+        // the registration — the user is created; they can resend if it's missed.
+        try {
+            await this.emailVerification.issueAndSend({
+                id: result.user.id,
+                email: result.user.email,
+                name: result.user.name,
+            });
+        } catch (e) {
+            this.log.error(`verification email failed for ${result.user.id}: ${(e as Error).message}`);
+        }
+
         const accessToken = await this.signAccessToken(result.user.id);
         const refreshToken = await this.refreshTokens.issue(result.user.id);
-        return { 
-            accessToken, 
-            refreshToken, 
-            organizationId: result.org.id, 
+        return {
+            accessToken,
+            refreshToken,
+            organizationId: result.org.id,
             userId: result.user.id,
         };
     }
