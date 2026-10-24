@@ -47,6 +47,24 @@ model User {
   createdAt     DateTime       @default(now())
   memberships   Membership[]
   refreshTokens RefreshToken[]
+  pushSubscriptions PushSubscription[]
+}
+
+// A Web Push endpoint for one browser/device of one user. The push service URL
+// (endpoint) is globally unique; the p256dh/auth keys encrypt the payload so
+// only that browser can read it. Pruned when the push service reports it gone.
+model PushSubscription {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  organizationId String
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([userId])
 }
 
 model Membership {

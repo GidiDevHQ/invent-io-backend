@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from './notification.service';
+import { PushSubscriptionService } from './push-subscription.service';
+import { SUBSCRIPTION_GONE } from './channels/webpush.channel';
 import type { TemplateData } from './templates';
 
 export interface DomainEvent {
@@ -29,6 +31,7 @@ export class NotificationDispatcher {
     constructor(
         private readonly prisma: PrismaService,
         private readonly notifications: NotificationService,
+        private readonly pushSubscriptions: PushSubscriptionService,
     ) {}
 
     async handle(event: DomainEvent): Promise<void> {
@@ -104,6 +107,33 @@ export class NotificationDispatcher {
         }
         if (recipients.length === 0) {
             this.log.warn(`No recipients for org ${organizationId} (${template})`);
+        }
+
+        // Web Push reaches browsers whose tab is closed — one send per registered
+        // subscription, independent of who is a messaging recipient.
+        await this.pushOrg(organizationId, template, data, eventId);
+    }
+
+    /** Push the template to every registered subscription in the org; prune the dead ones. */
+    private async pushOrg(
+        organizationId: string,
+        template: string,
+        data: TemplateData,
+        eventId?: string,
+    ): Promise<void> {
+        const subs = await this.pushSubscriptions.forOrganization(organizationId);
+        for (const s of subs) {
+            const outcome = await this.notifications.send({
+                organizationId,
+                channel: 'webpush',
+                to: JSON.stringify(s.subscription),
+                template,
+                data,
+                eventId,
+            });
+            if (outcome.status === 'FAILED' && outcome.error?.startsWith(SUBSCRIPTION_GONE)) {
+                await this.pushSubscriptions.pruneByEndpoint(s.endpoint);
+            }
         }
     }
 
