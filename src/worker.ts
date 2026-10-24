@@ -6,12 +6,19 @@ import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
 import { OutboxPublisher } from './outbox/outbox.publisher';
 import { NotificationDispatcher } from './notifications/notification-dispatcher';
+import { WeeklySummaryService } from './reports/weekly-summary.service';
 import { createRealtimeEmitter } from './realtime/realtime.emitter';
 
 // Events that wake the open web dashboard in real time.
 const REALTIME_EVENTS = new Set(['payment.confirmed', 'stock.low', 'sale.created']);
 
 export const DOMAIN_EVENTS_QUEUE = 'domain-events';
+export const SCHEDULED_JOBS_QUEUE = 'scheduled-jobs';
+const WEEKLY_SUMMARY_JOB = 'weekly-summary';
+// Monday 07:00 (business timezone) — a single scheduled fire does the work for
+// every org, so adding worker instances never duplicates the digest.
+const WEEKLY_SUMMARY_CRON = '0 7 * * 1';
+const WEEKLY_SUMMARY_TZ = 'Africa/Lagos';
 const POLL_INTERVAL_MS = 2000;
 
 function redisConnection(): RedisOptions {
@@ -43,10 +50,34 @@ async function bootstrap() {
   });
   const prisma = app.get(PrismaService);
   const dispatcher = app.get(NotificationDispatcher);
+  const weeklySummary = app.get(WeeklySummaryService);
   const realtime = createRealtimeEmitter();
 
   const queue = new Queue(DOMAIN_EVENTS_QUEUE, { connection });
   const publisher = new OutboxPublisher(prisma as never, queue);
+
+  // Scheduled jobs: a BullMQ job scheduler enqueues the weekly summary on a cron.
+  // upsertJobScheduler is keyed by id, so re-running on each deploy updates the
+  // schedule in place rather than stacking duplicates.
+  const scheduledQueue = new Queue(SCHEDULED_JOBS_QUEUE, { connection });
+  await scheduledQueue.upsertJobScheduler(
+    WEEKLY_SUMMARY_JOB,
+    { pattern: WEEKLY_SUMMARY_CRON, tz: WEEKLY_SUMMARY_TZ },
+    { name: WEEKLY_SUMMARY_JOB, data: {} },
+  );
+
+  const scheduledConsumer = new Worker(
+    SCHEDULED_JOBS_QUEUE,
+    async (job) => {
+      if (job.name === WEEKLY_SUMMARY_JOB) {
+        await weeklySummary.runForAllOrgs();
+      }
+    },
+    { connection },
+  );
+  scheduledConsumer.on('failed', (job, err) =>
+    logger.error(`scheduled job ${job?.name} failed: ${err.message}`),
+  );
 
   const consumer = new Worker(
     DOMAIN_EVENTS_QUEUE,
@@ -122,7 +153,9 @@ async function bootstrap() {
       // Keep connections alive until the in-flight poll settles.
       await pollLoopPromise;
       await consumer.close();
+      await scheduledConsumer.close();
       await queue.close();
+      await scheduledQueue.close();
       await realtime.close();
       await app.close();
     })();

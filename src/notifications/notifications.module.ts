@@ -20,6 +20,8 @@ import { WebPushChannel } from './channels/webpush.channel';
         EmailChannel,
         WebPushChannel,
     ],
-    exports: [NotificationService, NotificationDispatcher], // the worker's outbox consumer uses the dispatcher
+    // the worker's outbox consumer uses the dispatcher; reports' weekly summary
+    // reuses the service + push subscriptions.
+    exports: [NotificationService, NotificationDispatcher, PushSubscriptionService],
 })
 export class NotificationsModule {}
