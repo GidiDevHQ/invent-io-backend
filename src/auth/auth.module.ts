@@ -6,6 +6,8 @@ import { AuthController } from './auth.controller';
 import { RefreshTokenService } from "./refresh-token.service";
 import { EmailVerificationService } from "./email-verification.service";
 import { PasswordResetService } from "./password-reset.service";
+import { OtpService } from "./otp.service";
+import { AccountCredentialsService } from "./account-credentials.service";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { PassportModule } from "@nestjs/passport";
 import { JwtStrategy } from "./strategies/jwt.strategy";
@@ -26,7 +28,7 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
             })
         })
     ],
-    providers: [AuthService, RefreshTokenService, EmailVerificationService, PasswordResetService, JwtStrategy],
+    providers: [AuthService, RefreshTokenService, EmailVerificationService, PasswordResetService, OtpService, AccountCredentialsService, JwtStrategy],
     controllers: [AuthController],
     exports: [AuthService],
 })
