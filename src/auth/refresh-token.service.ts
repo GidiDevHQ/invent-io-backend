@@ -71,6 +71,14 @@ export class RefreshTokenService {
         });
     }
 
+    /** Revoke every active session for a user (e.g. after a password reset). */
+    async revokeAllForUser(userId: string) {
+        await this.prisma.refreshToken.updateMany({
+            where: { userId, revokedAt: null },
+            data: { revokedAt: new Date() },
+        });
+    }
+
     async revokedByRawToken(rawToken: string) {
         const existing = await this.prisma.refreshToken.findUnique({
             where: { tokenHash: this.hash(rawToken) },

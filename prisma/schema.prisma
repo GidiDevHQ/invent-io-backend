@@ -50,6 +50,7 @@ model User {
   refreshTokens RefreshToken[]
   pushSubscriptions PushSubscription[]
   emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 // A Web Push endpoint for one browser/device of one user. The push service URL
@@ -186,6 +187,20 @@ model RefreshToken {
 // SHA-256 hash is stored (never the raw token), the same way refresh tokens are
 // kept; the raw token lives only in the verification link we email.
 model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Single-use, short-lived token for resetting a forgotten password. Only the
+// SHA-256 hash is stored; the raw token lives only in the emailed reset link.
+model PasswordResetToken {
   id        String    @id @default(uuid())
   userId    String
   user      User      @relation(fields: [userId], references: [id])

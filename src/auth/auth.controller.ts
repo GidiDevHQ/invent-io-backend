@@ -5,8 +5,10 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
 import { RefreshTokenService } from './refresh-token.service';
 import { EmailVerificationService } from './email-verification.service';
+import { PasswordResetService } from './password-reset.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guards';
 
 @Controller('auth')
@@ -15,6 +17,7 @@ export  class AuthController {
         private authService: AuthService,
         private refreshTokenService: RefreshTokenService,
         private emailVerification: EmailVerificationService,
+        private passwordReset: PasswordResetService,
     ) {}
 
     @Post('register')
@@ -56,5 +59,19 @@ export  class AuthController {
     @ApiOperation({ summary: 'Resend the verification email to the logged-in user (throttled)' })
     resendVerification(@Req() req: { user: { userId: string } }) {
         return this.emailVerification.resend(req.user.userId);
+    }
+
+    @Post('forgot-password')
+    @HttpCode(200)
+    @ApiOperation({ summary: 'Email a password-reset link (always succeeds; no account enumeration)' })
+    forgotPassword(@Body() dto: ForgotPasswordDto) {
+        return this.passwordReset.request(dto.email);
+    }
+
+    @Post('reset-password')
+    @HttpCode(200)
+    @ApiOperation({ summary: 'Set a new password from a reset-link token; revokes all sessions' })
+    resetPassword(@Body() dto: ResetPasswordDto) {
+        return this.passwordReset.reset(dto.token, dto.password);
     }
 }
