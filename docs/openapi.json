@@ -111,6 +111,319 @@
         ]
       }
     },
+    "/v1/auth/verify-email": {
+      "post": {
+        "operationId": "AuthController_verifyEmail_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Confirm an email address from the verification link token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/verify-email/resend": {
+      "post": {
+        "operationId": "AuthController_resendVerification_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Resend the verification email to the logged-in user (throttled)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/forgot-password": {
+      "post": {
+        "operationId": "AuthController_forgotPassword_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Email a password-reset link (always succeeds; no account enumeration)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/reset-password": {
+      "post": {
+        "operationId": "AuthController_resetPassword_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Set a new password from a reset-link token; revokes all sessions",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/otp/request": {
+      "post": {
+        "operationId": "AuthController_requestOtp_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestOtpDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Email/text a 6-digit login code (always succeeds; no account enumeration)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/otp/verify": {
+      "post": {
+        "operationId": "AuthController_verifyOtp_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOtpDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Exchange a valid login code for a session",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/change-password": {
+      "post": {
+        "operationId": "AuthController_changePassword_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change password (requires current password); revokes all sessions",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/change-email": {
+      "post": {
+        "operationId": "AuthController_changeEmail_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeEmailDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change email (requires current password); re-sends verification",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/notifications/test": {
+      "post": {
+        "operationId": "NotificationsController_sendTest_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendNotificationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Send a templated notification over a channel (demo/verify)",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/push/vapid-public-key": {
+      "get": {
+        "operationId": "PushController_vapidPublicKey_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The VAPID public key the browser needs to subscribe",
+        "tags": [
+          "push"
+        ]
+      }
+    },
+    "/v1/push/subscriptions": {
+      "post": {
+        "operationId": "PushController_register_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterPushSubscriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Register this browser to receive push notifications",
+        "tags": [
+          "push"
+        ]
+      },
+      "delete": {
+        "operationId": "PushController_unregister_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnregisterPushSubscriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Stop receiving push notifications on this browser",
+        "tags": [
+          "push"
+        ]
+      }
+    },
     "/v1/tenancy/me": {
       "get": {
         "operationId": "TenancyController_me_v1",
@@ -185,6 +498,36 @@
           }
         ],
         "summary": "List products (cursor-paginated)",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/v1/products/import": {
+      "post": {
+        "operationId": "CatalogController_import_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportProductsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Bulk-import products from CSV (partial success; bad rows reported)",
         "tags": [
           "catalog"
         ]
@@ -628,16 +971,25 @@
         ]
       }
     },
-    "/v1/notifications/test": {
+    "/v1/sales/{id}/refund": {
       "post": {
-        "operationId": "NotificationsController_sendTest_v1",
-        "parameters": [],
+        "operationId": "SalesController_refund_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SendNotificationDto"
+                "$ref": "#/components/schemas/RefundDto"
               }
             }
           }
@@ -652,9 +1004,185 @@
             "bearer": []
           }
         ],
-        "summary": "Send a templated notification over a channel (demo/verify)",
+        "summary": "Refund a sale (full or partial): restores stock and records the refund",
         "tags": [
-          "notifications"
+          "sales"
+        ]
+      }
+    },
+    "/v1/dashboard/summary": {
+      "get": {
+        "operationId": "ReportsController_summary_v1",
+        "parameters": [
+          {
+            "name": "date",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Today's sales count, revenue, margin and low-stock count",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/dashboard/low-stock": {
+      "get": {
+        "operationId": "ReportsController_lowStock_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Items at or below their low-stock threshold",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/reports/sales": {
+      "get": {
+        "operationId": "ReportsController_sales_v1",
+        "parameters": [
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "branchId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Filtered, cursor-paginated sales list",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/payout-account": {
+      "get": {
+        "operationId": "PayoutController_get_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get the org payout account (last 4 digits only)",
+        "tags": [
+          "payout"
+        ]
+      },
+      "put": {
+        "operationId": "PayoutController_upsert_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertPayoutAccountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set or replace the org payout bank account",
+        "tags": [
+          "payout"
+        ]
+      },
+      "delete": {
+        "operationId": "PayoutController_remove_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove the org payout account",
+        "tags": [
+          "payout"
         ]
       }
     }
@@ -687,6 +1215,186 @@
       "RefreshTokenDto": {
         "type": "object",
         "properties": {}
+      },
+      "VerifyEmailDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The raw token from the verification link."
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "ForgotPasswordDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "The account email to send a reset link to."
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "ResetPasswordDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The raw token from the reset link."
+          },
+          "password": {
+            "type": "string",
+            "description": "The new password (min 8 characters)."
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ]
+      },
+      "RequestOtpDto": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Email address or phone number to send the login code to."
+          }
+        },
+        "required": [
+          "identifier"
+        ]
+      },
+      "VerifyOtpDto": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "The email or phone the code was sent to."
+          },
+          "code": {
+            "type": "string",
+            "example": "123456",
+            "description": "The 6-digit code."
+          }
+        },
+        "required": [
+          "identifier",
+          "code"
+        ]
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "description": "The current password."
+          },
+          "newPassword": {
+            "type": "string",
+            "description": "The new password (min 8 characters)."
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
+      "ChangeEmailDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "description": "The current password (re-auth for a sensitive change)."
+          },
+          "newEmail": {
+            "type": "string",
+            "description": "The new email address."
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newEmail"
+        ]
+      },
+      "SendNotificationDto": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "whatsapp",
+              "email",
+              "simulated"
+            ]
+          },
+          "to": {
+            "type": "string",
+            "description": "Phone number (whatsapp) or email address (email)."
+          },
+          "template": {
+            "type": "string",
+            "example": "payment.received"
+          },
+          "data": {
+            "type": "object",
+            "description": "Template variables, e.g. { amountMinor, currency }."
+          }
+        },
+        "required": [
+          "channel",
+          "to",
+          "template"
+        ]
+      },
+      "PushKeysDto": {
+        "type": "object",
+        "properties": {
+          "p256dh": {
+            "type": "string",
+            "description": "Client public key (base64url) from PushManager.subscribe()."
+          },
+          "auth": {
+            "type": "string",
+            "description": "Client auth secret (base64url) from PushManager.subscribe()."
+          }
+        },
+        "required": [
+          "p256dh",
+          "auth"
+        ]
+      },
+      "RegisterPushSubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "Push service endpoint URL for this browser."
+          },
+          "keys": {
+            "$ref": "#/components/schemas/PushKeysDto"
+          }
+        },
+        "required": [
+          "endpoint",
+          "keys"
+        ]
+      },
+      "UnregisterPushSubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "The endpoint URL to remove."
+          }
+        },
+        "required": [
+          "endpoint"
+        ]
       },
       "CreateProductDto": {
         "type": "object",
@@ -723,6 +1431,19 @@
           "name",
           "price",
           "cost"
+        ]
+      },
+      "ImportProductsDto": {
+        "type": "object",
+        "properties": {
+          "csv": {
+            "type": "string",
+            "description": "Raw CSV text. Header row required; columns (case-insensitive): name, price, cost (required) and sku, barcode, unit (optional). price/cost are integer minor units.",
+            "example": "name,sku,price,cost\nBar Soap,SOAP-001,150000,90000"
+          }
+        },
+        "required": [
+          "csv"
         ]
       },
       "UpdateProductDto": {
@@ -918,34 +1639,70 @@
           "idempotencyKey"
         ]
       },
-      "SendNotificationDto": {
+      "RefundItemInput": {
         "type": "object",
         "properties": {
-          "channel": {
-            "type": "string",
-            "enum": [
-              "whatsapp",
-              "email",
-              "simulated"
-            ]
+          "productId": {
+            "type": "string"
           },
-          "to": {
-            "type": "string",
-            "description": "Phone number (whatsapp) or email address (email)."
-          },
-          "template": {
-            "type": "string",
-            "example": "payment.received"
-          },
-          "data": {
-            "type": "object",
-            "description": "Template variables, e.g. { amountMinor, currency }."
+          "qty": {
+            "type": "number",
+            "example": 1
           }
         },
         "required": [
-          "channel",
-          "to",
-          "template"
+          "productId",
+          "qty"
+        ]
+      },
+      "RefundDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "Lines to refund. Omit to refund the whole remaining sale.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefundItemInput"
+            }
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the refund was issued."
+          }
+        }
+      },
+      "UpsertPayoutAccountDto": {
+        "type": "object",
+        "properties": {
+          "bankCode": {
+            "type": "string",
+            "description": "Bank code (provider/CBN bank code)."
+          },
+          "bankName": {
+            "type": "string",
+            "example": "Guaranty Trust Bank"
+          },
+          "accountName": {
+            "type": "string",
+            "example": "Marcel Ndanwe",
+            "description": "Account holder name."
+          },
+          "accountNumber": {
+            "type": "string",
+            "example": "0123456789",
+            "description": "Account number (digits only)."
+          },
+          "currency": {
+            "type": "string",
+            "example": "NGN",
+            "description": "Currency code (default NGN)."
+          }
+        },
+        "required": [
+          "bankCode",
+          "bankName",
+          "accountName",
+          "accountNumber"
         ]
       }
     }

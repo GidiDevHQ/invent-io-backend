@@ -49,7 +49,14 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const openApiDocument = SwaggerModule.createDocument(app, openApiConfig);
-  app.use('/reference', apiReference({ content: openApiDocument }));
+  app.use(
+    '/reference',
+    apiReference({
+      content: openApiDocument,
+      // Without this the browser tab reads the default "Scalar API Reference".
+      pageTitle: 'Invent-IO API',
+    }),
+  );
 
   app.useGlobalPipes(
     new ValidationPipe({
