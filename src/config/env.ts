@@ -17,4 +17,7 @@ export const env = {
   JWT_SECRET: getRequiredEnv('JWT_SECRET'),
   REDIS_URL: getRequiredEnv('REDIS_URL'),
   PORT: process.env.PORT ?? '3000',
+  CORS_ORIGINS:
+    process.env.CORS_ORIGINS ??
+    'http://localhost:3000,http://localhost:5173,https://localhost:3000,https://localhost:5173',
 };

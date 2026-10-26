@@ -1,5 +1,6 @@
 import { Controller, Post, Body, HttpCode, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { AuthThrottle } from './auth-throttle.decorator';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -24,16 +25,19 @@ export  class AuthController {
     ) {}
 
     @Post('register')
+    @AuthThrottle(5)
     register(@Body() dto: RegisterDto) {
         return this.authService.register(dto);
     }
 
     @Post('login')
+    @AuthThrottle(10)
     login(@Body() dto: LoginDto) {
         return this.authService.login(dto)
     }
 
     @Post('refresh')
+    @AuthThrottle()
     async refresh(@Body() dto: RefreshTokenDto) {
         const { userId, newRawToken } = await this.refreshTokenService.rotate(dto.refreshToken);
         const accessToken = await this.authService.signAccessToken(userId);
@@ -42,12 +46,14 @@ export  class AuthController {
     }
 
     @Post('logout')
+    @AuthThrottle()
     async logout(@Body() dto: RefreshTokenDto) {
         await this.refreshTokenService.revokedByRawToken(dto.refreshToken);
         return { message: 'Logged out successfully' };
     }
 
     @Post('verify-email')
+    @AuthThrottle()
     @HttpCode(200)
     @ApiOperation({ summary: 'Confirm an email address from the verification link token' })
     verifyEmail(@Body() dto: VerifyEmailDto) {
@@ -56,6 +62,7 @@ export  class AuthController {
     }
 
     @Post('verify-email/resend')
+    @AuthThrottle()
     @HttpCode(200)
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
@@ -65,6 +72,7 @@ export  class AuthController {
     }
 
     @Post('forgot-password')
+    @AuthThrottle()
     @HttpCode(200)
     @ApiOperation({ summary: 'Email a password-reset link (always succeeds; no account enumeration)' })
     forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -72,6 +80,7 @@ export  class AuthController {
     }
 
     @Post('reset-password')
+    @AuthThrottle()
     @HttpCode(200)
     @ApiOperation({ summary: 'Set a new password from a reset-link token; revokes all sessions' })
     resetPassword(@Body() dto: ResetPasswordDto) {
@@ -79,6 +88,7 @@ export  class AuthController {
     }
 
     @Post('otp/request')
+    @AuthThrottle()
     @HttpCode(200)
     @ApiOperation({ summary: 'Email/text a 6-digit login code (always succeeds; no account enumeration)' })
     requestOtp(@Body() dto: RequestOtpDto) {
@@ -86,6 +96,7 @@ export  class AuthController {
     }
 
     @Post('otp/verify')
+    @AuthThrottle()
     @HttpCode(200)
     @ApiOperation({ summary: 'Exchange a valid login code for a session' })
     verifyOtp(@Body() dto: VerifyOtpDto) {

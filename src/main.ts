@@ -6,17 +6,42 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import { RealtimeService } from './realtime/realtime.service';
 
+function parseCorsOrigins(): string[] {
+  const raw = process.env.CORS_ORIGINS ?? '';
+  return raw
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
-  // All routes are served under /v1. Breaking changes ship as a new version
-  // (e.g. version: '2' on a controller) so existing clients keep working.
+  const origins = parseCorsOrigins();
+  app.enableCors({
+    origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (origins.length === 0 || origins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  });
+
   app.enableVersioning({
     type: VersioningType.URI,
     defaultVersion: '1',
   });
 
-  // OpenAPI document, rendered by Scalar at /reference (not Swagger UI).
   const openApiConfig = new DocumentBuilder()
     .setTitle('Invent-IO API')
     .setDescription('Payment-triggered inventory backend')
@@ -36,7 +61,6 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 
-  // Attach the Socket.IO realtime gateway to the running HTTP server.
   app.get(RealtimeService).init(app.getHttpServer());
 }
 void bootstrap();
