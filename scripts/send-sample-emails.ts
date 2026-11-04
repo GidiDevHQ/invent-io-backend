@@ -12,10 +12,12 @@ import { resolveSender, senderForTemplate } from '../src/notifications/sender-id
  */
 const SAMPLES: { template: string; data: Record<string, unknown> }[] = [
     { template: 'welcome', data: { name: 'Marcel', businessName: 'Marcel Stores' } },
-    { template: 'verify-email', data: { name: 'Marcel', verifyUrl: 'https://app.invent-io.example/verify-email?token=demo' } },
-    { template: 'password.reset', data: { resetUrl: 'https://app.invent-io.example/reset-password?token=demo' } },
-    { template: 'otp', data: { code: '123456' } },
+    { template: 'verify-email', data: { name: 'Marcel', verifyUrl: 'https://app.invent-io.example/#/verify-email?token=demo' } },
+    { template: 'password.reset', data: { resetUrl: 'https://app.invent-io.example/#/reset?token=demo' } },
+    { template: 'otp', data: { code: '482913' } },
     { template: 'payment.received', data: { amountMinor: '150000', currency: 'NGN' } },
+    { template: 'stock.low', data: { productName: 'Peak Milk 400g', qty: 2, lowStockThreshold: 5 } },
+    { template: 'sale.variance', data: { variance: '-100000', currency: 'NGN' } },
     { template: 'refund', data: { amountMinor: '50000', currency: 'NGN' } },
     { template: 'settlement.completed', data: { amountMinor: '1250000', currency: 'NGN' } },
     { template: 'weekly.summary', data: { revenue: '4200000', margin: '1600000', currency: 'NGN', topSellers: ['Soap (42)', 'Rice (30)'], lowStock: ['Milk (2)'] } },
