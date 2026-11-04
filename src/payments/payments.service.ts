@@ -162,7 +162,19 @@ export class PaymentsService {
 
         const branchId = tenant.branchId ?? requestedBranchId;
         if (!branchId) {
-            throw new BadRequestException('branchId is required for a manual cash payment');
+            // An org-wide member (owner) sent no branch: default to the only active
+            // one. With several branches the choice is the caller's to make.
+            const active = await this.prisma.branch.findMany({
+                where: { organizationId: tenant.organizationId, active: true },
+                select: { id: true },
+                take: 2,
+            });
+            if (active.length === 1) return active[0].id;
+            throw new BadRequestException(
+                active.length === 0
+                    ? 'This organization has no active branch'
+                    : 'branchId is required: this organization has more than one branch (see GET /v1/branches)',
+            );
         }
 
         const branch = await this.prisma.branch.findFirst({

@@ -18,6 +18,7 @@ describe('PaymentsService', () => {
     let paymentFindMany: jest.Mock;
     let paymentFindFirst: jest.Mock;
     let branchFindFirst: jest.Mock;
+    let branchFindMany: jest.Mock;
     let paymentCreate: jest.Mock;
     let auditCreate: jest.Mock;
     let outboxCreate: jest.Mock;
@@ -37,6 +38,7 @@ describe('PaymentsService', () => {
         ]);
         paymentFindFirst = jest.fn();
         branchFindFirst = jest.fn().mockResolvedValue({ id: 'branch-1' });
+        branchFindMany = jest.fn().mockResolvedValue([{ id: 'branch-1' }]);
         paymentCreate = jest.fn().mockResolvedValue({
             id: 'payment-cash-1',
             organizationId: 'org-1',
@@ -59,7 +61,7 @@ describe('PaymentsService', () => {
 
         const prisma = {
             payment: { findMany: paymentFindMany, findFirst: paymentFindFirst },
-            branch: { findFirst: branchFindFirst },
+            branch: { findFirst: branchFindFirst, findMany: branchFindMany },
             $transaction: transaction,
         } as unknown as PrismaService;
         service = new PaymentsService(prisma, new AuditService(), new OutboxService());
@@ -168,6 +170,22 @@ describe('PaymentsService', () => {
 
         await expect(service.createManual(tenant, { amountMinor: '2500', branchId: 'missing' }))
             .rejects.toThrow('Active branch not found');
+        expect(transaction).not.toHaveBeenCalled();
+    });
+
+    it('defaults an owner with no branchId to the organization\'s only branch', async () => {
+        await service.createManual(tenant, { amountMinor: '2500' });
+
+        expect(paymentCreate).toHaveBeenCalledWith({
+            data: expect.objectContaining({ branchId: 'branch-1' }),
+        });
+    });
+
+    it('asks for a branchId when the organization has several branches', async () => {
+        branchFindMany.mockResolvedValue([{ id: 'branch-1' }, { id: 'branch-2' }]);
+
+        await expect(service.createManual(tenant, { amountMinor: '2500' }))
+            .rejects.toThrow('more than one branch');
         expect(transaction).not.toHaveBeenCalled();
     });
 
