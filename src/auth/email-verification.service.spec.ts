@@ -27,7 +27,7 @@ describe('EmailVerificationService', () => {
         expect(emailVerificationToken.create).toHaveBeenCalled();
         const call = notifications.send.mock.calls[0][0];
         expect(call).toMatchObject({ channel: 'email', template: 'verify-email', to: 'a@b.com' });
-        expect(call.data.verifyUrl).toContain('/verify-email?token=');
+        expect(call.data.verifyUrl).toContain('/#/verify-email?token=');
         // The raw token is in the link, not the stored row (which holds the hash).
         const storedHash = emailVerificationToken.create.mock.calls[0][0].data.tokenHash;
         expect(call.data.verifyUrl).not.toContain(storedHash);

@@ -31,7 +31,7 @@ async function main() {
         const from = resolveSender(senderKey);
         const rendered = renderTemplate(template, data);
         try {
-            const result = await channel.send({ to, subject: rendered.subject, body: rendered.body, from });
+            const result = await channel.send({ to, subject: rendered.subject, body: rendered.body, html: rendered.html, from });
             console.log(`SENT  ${template.padEnd(20)} as ${senderKey.padEnd(8)} <${from.name} ${from.email}>  id=${result.providerMessageId ?? '-'}`);
         } catch (e) {
             console.error(`FAIL  ${template.padEnd(20)} ${(e as Error).message}`);

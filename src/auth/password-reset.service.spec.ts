@@ -26,7 +26,7 @@ describe('PasswordResetService', () => {
             expect(passwordResetToken.create).toHaveBeenCalled();
             const call = notifications.send.mock.calls[0][0];
             expect(call).toMatchObject({ template: 'password.reset', to: 'a@b.com' });
-            expect(call.data.resetUrl).toContain('/reset-password?token=');
+            expect(call.data.resetUrl).toContain('/#/reset?token=');
         });
 
         it('does not reveal a missing account (uniform response, no email)', async () => {
