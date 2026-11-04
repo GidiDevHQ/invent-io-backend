@@ -9,6 +9,8 @@ export interface OutboundMessage {
     /** Email subject; ignored by phone-based channels. */
     subject?: string;
     body: string;
+    /** Branded HTML for email; other channels ignore it and send `body`. */
+    html?: string;
     /** Sender identity for channels that have one (email). Ignored elsewhere. */
     from?: { email: string; name?: string };
 }

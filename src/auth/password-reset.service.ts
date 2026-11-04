@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'crypto';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notifications/notification.service';
+import { appUrl } from '../notifications/email-layout';
 import { RefreshTokenService } from './refresh-token.service';
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -29,8 +30,8 @@ export class PasswordResetService {
     }
 
     private resetUrl(rawToken: string): string {
-        const base = (process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-        return `${base}/reset-password?token=${rawToken}`;
+        // Must match the frontend's hash route (#/reset) or the token is lost.
+        return appUrl('reset', { token: rawToken });
     }
 
     /**

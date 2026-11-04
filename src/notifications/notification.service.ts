@@ -70,6 +70,7 @@ export class NotificationService {
                 to: params.to,
                 subject: rendered.subject,
                 body: rendered.body,
+                html: rendered.html,
                 from,
             });
             providerMessageId = result.providerMessageId;

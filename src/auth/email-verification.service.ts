@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notifications/notification.service';
+import { appUrl } from '../notifications/email-layout';
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const RESEND_COOLDOWN_MS = 60 * 1000; // throttle resend to once a minute
@@ -33,8 +34,8 @@ export class EmailVerificationService {
     }
 
     private verifyUrl(rawToken: string): string {
-        const base = (process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-        return `${base}/verify-email?token=${rawToken}`;
+        // Must match the frontend's hash route (#/verify-email) or the token is lost.
+        return appUrl('verify-email', { token: rawToken });
     }
 
     /** Create a token and email the verification link. Used on registration. */
