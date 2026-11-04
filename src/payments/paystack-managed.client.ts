@@ -36,6 +36,18 @@ export type CreateDedicatedAccountInput = {
     preferred_bank?: string;
 };
 
+/** Paystack answered with an error; `status` is its HTTP status (400 = bad input). */
+export class PaystackRequestError extends Error {
+    constructor(
+        message: string,
+        readonly status: number,
+        readonly providerMessage: string,
+    ) {
+        super(message);
+        this.name = 'PaystackRequestError';
+    }
+}
+
 export class PaystackManagedClient {
     constructor(
         private readonly secretKey: string,
@@ -96,7 +108,7 @@ export class PaystackManagedClient {
         }
 
         const message = typeof result.message === 'string' ? result.message : 'Invalid provider response';
-        throw new Error(`Paystack ${path} failed (${response.status}): ${message}`);
+        throw new PaystackRequestError(`Paystack ${path} failed (${response.status}): ${message}`, response.status, message);
     }
 
     private asRecord(value: unknown, field: string): Record<string, unknown> {

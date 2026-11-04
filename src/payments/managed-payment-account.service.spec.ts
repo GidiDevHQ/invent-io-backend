@@ -1,4 +1,6 @@
+import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
+import { PaystackRequestError } from './paystack-managed.client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext } from '../tenancy/tenant.decorator';
 import { encryptSecret } from './credentials-crypto';
@@ -194,6 +196,59 @@ describe('ManagedPaymentAccountService', () => {
         await expect(service.provision(tenant, makeDto({
             settlementAccountNumber: '9999996789',
         }))).rejects.toThrow('different settlement details');
+    });
+
+    it('turns a Paystack rejection into a 400 with the reason, and lets the owner retry with fixed details', async () => {
+        const pending = {
+            id: 'managed-1',
+            organizationId: 'org-1',
+            status: 'PENDING',
+            providerSubaccountCode: null,
+            providerCustomerCode: null,
+            settlementBankCode: '058',
+            settlementAccountLast4: '6789',
+            settlementAccountCiphertext: encryptSecret(dto.settlementAccountNumber),
+            virtualAccounts: [],
+        };
+        const update = jest.fn().mockResolvedValue({ ...pending, settlementAccountLast4: '1111' });
+        const prisma = {
+            managedPaymentAccount: {
+                findUnique: jest.fn().mockResolvedValue(pending),
+                update,
+            },
+        } as unknown as PrismaService;
+        const client = {
+            createSubaccount: jest.fn().mockRejectedValue(
+                new PaystackRequestError('Paystack /subaccount failed (400): Account number is invalid', 400, 'Account number is invalid'),
+            ),
+        };
+        const service = new ManagedPaymentAccountService(prisma, new AuditService(), () => client as never);
+
+        // A different account number is accepted (no 409) because Paystack never took the first one…
+        const attempt = service.provision(tenant, makeDto({ settlementAccountNumber: '0000001111' }));
+        // …and Paystack's rejection reaches the caller as a 400 they can act on.
+        await expect(attempt).rejects.toBeInstanceOf(BadRequestException);
+        await expect(service.provision(tenant, makeDto({ settlementAccountNumber: '0000001111' })))
+            .rejects.toThrow('Paystack rejected the settlement account: Account number is invalid');
+        expect(update).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({ settlementAccountLast4: '1111' }),
+        }));
+    });
+
+    it('reports missing server configuration as a 503, not a 500', async () => {
+        const prisma = {
+            managedPaymentAccount: {
+                findUnique: jest.fn().mockResolvedValue(null),
+                create: jest.fn().mockResolvedValue({
+                    id: 'managed-1', providerSubaccountCode: null, providerCustomerCode: null, virtualAccounts: [],
+                }),
+            },
+        } as unknown as PrismaService;
+        const service = new ManagedPaymentAccountService(prisma, new AuditService(), () => {
+            throw new Error('PAYSTACK_TEST_SECRET_KEY is not configured');
+        });
+
+        await expect(service.provision(tenant, dto)).rejects.toBeInstanceOf(ServiceUnavailableException);
     });
 
     it('requires explicit owner consent before provisioning', async () => {
