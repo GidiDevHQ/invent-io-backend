@@ -433,6 +433,32 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Current tenant context, with the branches this member can use",
+        "tags": [
+          "Tenancy"
+        ]
+      }
+    },
+    "/v1/branches": {
+      "get": {
+        "operationId": "TenancyController_branches_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Active branches this member can use ([{ id, name }])",
         "tags": [
           "Tenancy"
         ]
