@@ -1,7 +1,8 @@
 // Builds the API reference from docs/openapi.json and the request DTOs in src/.
 // Refresh it after changing endpoints:
 //   npm run openapi:export
-//   node scripts/build-api-reference.js docs/openapi.json <out.html> docs/API-REFERENCE.md
+//   node scripts/build-api-reference.js docs/openapi.json <out.html> docs/API-REFERENCE.md docs/api-reference.html
+// The last file is the interactive Scalar page (same look as the live /reference).
 const fs = require('fs');
 const [, , specPath, outPath] = process.argv;
 const spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
@@ -47,11 +48,29 @@ const dtoFields = {};
         pick(/IsUrl/, () => 'URL');
         pick(/IsBoolean/, () => 'true or false');
         pick(/ValidateNested/, () => 'nested object');
+        // The same rules as JSON Schema, for filling the spec's empty request schemas.
+        const schema = {};
+        const g = (re) => d.match(re);
+        let x;
+        if ((x = g(/description:\s*(['"`])(.+?)\1/))) schema.description = x[2];
+        if ((x = g(/example:\s*(['"`])(.*?)\1/))) schema.example = x[2];
+        else if ((x = g(/example:\s*(-?\d+(?:\.\d+)?|true|false)\b/))) schema.example = JSON.parse(x[1]);
+        if (/IsEmail/.test(d)) schema.format = 'email';
+        if (/IsUUID/.test(d)) schema.format = 'uuid';
+        if (/IsUrl/.test(d)) schema.format = 'uri';
+        if ((x = g(/MinLength\((\d+)\)/))) schema.minLength = +x[1];
+        if ((x = g(/MaxLength\((\d+)\)/))) schema.maxLength = +x[1];
+        if ((x = g(/Matches\(\/(.+?)\/[a-z]*\)/))) schema.pattern = x[1];
+        if ((x = g(/\bMin\((\d+)\)/))) schema.minimum = +x[1];
+        if ((x = g(/\bMax\((\d+)\)/))) schema.maximum = +x[1];
+        if ((x = g(/IsIn\(\[([^\]]+)\]/))) schema.enum = x[1].split(',').map((v) => v.trim().replace(/^['"`]|['"`]$/g, ''));
         fields.push({
           name: m[1],
           type: m[3].trim(),
           required: !(m[2] === '?' || /IsOptional/.test(d)),
           notes: rules.join(' · '),
+          schema,
+          isInt: /IsInt/.test(d),
         });
         decos = [];
       }
@@ -255,6 +274,81 @@ footer{margin-top:48px;padding-top:18px;border-top:1px solid var(--line);font-si
 </main>
 </div>`;
 fs.writeFileSync(outPath, html);
+
+// Scalar edition: the same interactive reference the API serves at /reference,
+// as one standalone HTML file with the spec embedded (no backend needed to read it).
+if (process.argv[5]) {
+  const full = JSON.parse(JSON.stringify(spec));
+  const toSchema = (f) => {
+    const t = f.type.replace(/\s/g, '');
+    const arr = t.endsWith('[]');
+    const base = arr ? t.slice(0, -2) : t;
+    let s;
+    if (dtoFields[base]) s = { $ref: `#/components/schemas/${base}` };
+    else if (base === 'string') s = { type: 'string' };
+    else if (base === 'number' || base === 'bigint') s = { type: f.isInt || /Minor|price|cost|qty/i.test(f.name) ? 'integer' : 'number' };
+    else if (base === 'boolean') s = { type: 'boolean' };
+    else s = { type: 'string' }; // TS enums and string unions
+    s = arr ? { type: 'array', items: s } : s;
+    return { ...s, ...f.schema };
+  };
+  full.components ??= {};
+  full.components.schemas ??= {};
+  for (const [name, fields] of Object.entries(dtoFields)) {
+    if (!fields.length) continue;
+    const existing = full.components.schemas[name];
+    if (existing && Object.keys(existing.properties ?? {}).length) continue;
+    full.components.schemas[name] = {
+      type: 'object',
+      properties: Object.fromEntries(fields.map((f) => [f.name, toSchema(f)])),
+      required: fields.filter((f) => f.required).map((f) => f.name),
+    };
+  }
+  full.info.description =
+    'Invent-IO turns a confirmed payment into a recorded sale and updates stock in under 60 seconds.\n\n' +
+    '**Authentication:** send `Authorization: Bearer <accessToken>`. Get a token from register, login or a login code; refresh it with `POST /v1/auth/refresh`.\n\n' +
+    '**Money:** amounts are whole minor units (kobo for NGN), sent and returned as strings, e.g. `"150000"` = ₦1,500.00.\n\n' +
+    '**Businesses are isolated:** every request is scoped to the signed-in user’s business; roles decide what each member may do.\n\n' +
+    '**Lists and errors:** lists take `limit` and `cursor` and return `nextCursor`. Errors return `{ statusCode, message }`.';
+  full.servers = [{ url: 'https://invent-io-backend-production.up.railway.app', description: 'Production' }];
+  full.components.securitySchemes ??= { bearer: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } };
+  const scheme = Object.keys(full.components.securitySchemes)[0];
+  for (const [path, methods] of Object.entries(full.paths)) {
+    for (const op of Object.values(methods)) {
+      const isPublic = !(op.security && op.security.length) && !/me|branches|products|stock|payments|sales|dashboard|reports|payout|subscriptions|notifications|resend|change-/.test(path);
+      if (!isPublic && !(op.security && op.security.length)) op.security = [{ [scheme]: [] }];
+      const tag = (op.tags ?? ['App'])[0];
+      const g = GROUPS.find(([t]) => t === tag);
+      if (g) op.tags = [g[1]];
+    }
+  }
+  full.tags = GROUPS.map(([, name, blurb]) => ({ name, description: blurb }));
+  const json = JSON.stringify(full).replace(/</g, '\\u003c');
+  const page = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Invent-IO API</title>
+  <meta name="description" content="Invent-IO API reference: every endpoint, with request fields, validation rules and examples.">
+</head>
+<body>
+  <div id="app"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.83.0/dist/browser/standalone.js"></script>
+  <script>
+    Scalar.createApiReference('#app', {
+      content: ${json},
+      pageTitle: 'Invent-IO API',
+      hideClientButton: false,
+      defaultOpenAllTags: false
+    });
+  </script>
+</body>
+</html>
+`;
+  fs.writeFileSync(process.argv[5], page);
+  console.log(`wrote ${process.argv[5]} (Scalar, ${(page.length / 1024).toFixed(0)} KB)`);
+}
 
 // Markdown edition, for reading on GitHub (which does not render HTML pages).
 if (process.argv[4]) {
